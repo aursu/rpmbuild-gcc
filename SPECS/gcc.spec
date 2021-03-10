@@ -101,6 +101,9 @@
 %ifarch x86_64
 %global multilib_32_arch i686
 %endif
+
+%define debug_package %{nil}
+
 Summary: Various compilers (C, C++, Objective-C, ...)
 Name: gcc
 Version: %{gcc_version}
