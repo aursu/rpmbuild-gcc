@@ -19,7 +19,7 @@ before_script:
   - docker-compose build --no-cache ${BUILD}
 
 script:
-  - docker-compose up --exit-code-from ${BUILD} ${BUILD} -d
+  - docker-compose up --exit-code-from ${BUILD} -d ${BUILD}
   - while docker-compose ps ${BUILD} | grep -q -w Up; do docker-compose logs --tail=2 && sleep 10; done
 
 before_deploy:
