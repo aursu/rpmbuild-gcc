@@ -1,0 +1,28 @@
+version: "3.4"
+services:
+  centos7gccbuild:
+    volumes:
+      - rpms:/home/centos/rpmbuild/SRPMS
+      - rpm7:/home/centos/rpmbuild/RPMS
+    build:
+      context: .
+      args:
+        centos: $OS7
+    command:
+      - "-ba"
+      - "--without"
+      - doc
+      - "--without"
+      - selftests
+      - "--without"
+      - debuginfo
+      - "--without"
+      - kabidwchk
+      - "--without"
+      - kabidw-base
+
+volumes:
+  rpms:
+    name: rpms
+  rpm8:
+    name: rpm7
