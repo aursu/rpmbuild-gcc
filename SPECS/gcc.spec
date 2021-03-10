@@ -1073,9 +1073,9 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	$CONFIGURE_OPTS
 
 %ifarch sparc sparcv9 sparc64
-make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" bootstrap
+make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LIBTOOLFLAGS="--silent" bootstrap
 %else
-make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" profiledbootstrap
+make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LIBTOOLFLAGS="--silent" profiledbootstrap
 %endif
 
 CC="`%{gcc_target_platform}/libstdc++-v3/scripts/testsuite_flags --build-cc`"
@@ -1091,7 +1091,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
 	../../configure --disable-bootstrap --enable-host-shared \
 	--enable-languages=jit $CONFIGURE_OPTS
-make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" all-gcc
+make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LIBTOOLFLAGS="--silent" all-gcc
 cp -a gcc/libgccjit.so* ../gcc/
 cd ../gcc/
 ln -sf xgcc %{gcc_target_platform}-gcc-%{gcc_major}
