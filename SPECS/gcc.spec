@@ -78,7 +78,7 @@
 %endif
 %endif
 %global build_isl 1
-%global build_libstdcxx_docs 1
+%global build_libstdcxx_docs 0
 %ifarch %{ix86} x86_64 ppc ppc64 ppc64le ppc64p7 s390 s390x %{arm} aarch64 %{mips}
 %global attr_ifunc 1
 %else
