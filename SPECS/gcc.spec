@@ -1,10 +1,10 @@
-%global DATE 20190223
-%global SVNREV 269162
-%global gcc_version 8.3.1
+%global DATE 20180905
+%global SVNREV 264110
+%global gcc_version 8.2.1
 %global gcc_major 8
 # Note, gcc_release must be integer, if you want to add suffixes to
 # %%{release}, append them after %%{gcc_release} on Release: line.
-%global gcc_release 2
+%global gcc_release 3
 %global nvptx_tools_gitrev c28050f60193b3b95a18866a96f03334e874e78f
 %global nvptx_newlib_gitrev aadc8eb0ec43b7cd0dd2dfb484bae63c8b05ef24
 %global _unpackaged_files_terminate_build 0
@@ -15,11 +15,12 @@
 # Until annobin is fixed (#1519165).
 %undefine _annotated_build
 %endif
-%global multilib_64_archs sparc64 ppc64 ppc64p7 s390x x86_64
+%global multilib_64_archs sparc64 ppc64 ppc64p7 x86_64
 %if 0%{?rhel} > 7
 %global build_ada 0
 %global build_objc 0
 %global build_go 0
+%global build_libgccjit 0
 %else
 %ifarch %{ix86} x86_64 ia64 ppc %{power64} alpha s390x %{arm} aarch64
 %global build_ada 1
@@ -27,6 +28,7 @@
 %global build_ada 0
 %endif
 %global build_objc 1
+%global build_libgccjit 1
 %ifarch %{ix86} x86_64 ppc ppc64 ppc64le ppc64p7 s390 s390x %{arm} aarch64 %{mips}
 %global build_go 1
 %else
@@ -107,7 +109,7 @@
 Summary: Various compilers (C, C++, Objective-C, ...)
 Name: gcc
 Version: %{gcc_version}
-Release: %{gcc_release}%{?dist}
+Release: %{gcc_release}.5%{?dist}
 # libgcc, libgfortran, libgomp, libstdc++ and crtstuff have
 # GCC Runtime Exception.
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ with exceptions and LGPLv2+ and BSD
@@ -146,10 +148,14 @@ URL: http://gcc.gnu.org
 # Need binutils which support -plugin
 # Need binutils which support .loc view >= 2.30
 # Need binutils which support --generate-missing-build-notes=yes >= 2.31
-%if 0%{?fedora} >= 29 || 0%{?rhel} > 7
+%if 0%{?fedora} >= 29
 BuildRequires: binutils >= 2.31
 %else
+%if 0%{?rhel} > 7
+BuildRequires: binutils >= 2.30-17
+%else
 BuildRequires: binutils >= 2.24
+%endif
 %endif
 # While gcc doesn't include statically linked binaries, during testing
 # -static is used several times.
@@ -216,10 +222,14 @@ Requires: cpp = %{version}-%{release}
 # Need binutils that support -plugin
 # Need binutils that support .loc view >= 2.30
 # Need binutils which support --generate-missing-build-notes=yes >= 2.31
-%if 0%{?fedora} >= 29 || 0%{?rhel} > 7
-Requires: binutils >= 2.31
+%if 0%{?fedora} >= 29
+BuildRequires: binutils >= 2.31
 %else
-Requires: binutils >= 2.24
+%if 0%{?rhel} > 7
+BuildRequires: binutils >= 2.30-17
+%else
+BuildRequires: binutils >= 2.24
+%endif
 %endif
 # Make sure gdb will understand DW_FORM_strp
 Conflicts: gdb < 5.1-2
@@ -262,6 +272,16 @@ Patch10: gcc8-Wno-format-security.patch
 Patch11: gcc8-rh1512529-aarch64.patch
 Patch12: gcc8-mcet.patch
 Patch13: gcc8-rh1574936.patch
+Patch14: gcc8-libgcc-hardened.patch
+Patch15: gcc8-rh1612514.patch
+Patch16: gcc8-pr60790.patch
+Patch17: gcc8-rh1652016.patch
+
+Patch21: gcc8-rh1652929-1.patch
+Patch22: gcc8-rh1652929-2.patch
+Patch23: gcc8-rh1652929-3.patch
+Patch24: gcc8-rh1652929-4.patch
+Patch25: gcc8-rh1652929-5.patch
 
 Patch1000: nvptx-tools-no-ptxas.patch
 Patch1001: nvptx-tools-build.patch
@@ -829,7 +849,17 @@ to NVidia PTX capable devices if available.
 %endif
 %if 0%{?fedora} >= 29 || 0%{?rhel} > 7
 %patch13 -p0 -b .rh1574936~
+%patch14 -p0 -b .libgcc-hardened~
 %endif
+%patch15 -p0 -b .rh1612514~
+%patch16 -p0 -b .pr60790~
+%patch17 -p1 -b .rh1652016~
+
+%patch21 -p1 -b .rh1652929-1~
+%patch22 -p1 -b .rh1652929-2~
+%patch23 -p1 -b .rh1652929-3~
+%patch24 -p1 -b .rh1652929-4~
+%patch25 -p1 -b .rh1652929-5~
 
 cd nvptx-tools-%{nvptx_tools_gitrev}
 %patch1000 -p1 -b .nvptx-tools-no-ptxas~
@@ -902,7 +932,7 @@ cd nvptx-tools-%{nvptx_tools_gitrev}
 rm -rf obj-%{gcc_target_platform}
 mkdir obj-%{gcc_target_platform}
 cd obj-%{gcc_target_platform}
-CC="$CC" CXX="$CXX" CFLAGS="%{optflags}" CXXFLAGS="%{optflags}" \
+CC="$CC" CXX="$CXX" CFLAGS="%{optflags}" CXXFLAGS="%{optflags}" LDFLAGS="$RPM_LD_FLAGS" \
 ../configure --prefix=%{_prefix}
 make %{?_smp_mflags}
 make install prefix=${IROOT}%{_prefix}
@@ -913,7 +943,7 @@ rm -rf obj-offload-nvptx-none
 mkdir obj-offload-nvptx-none
 
 cd obj-offload-nvptx-none
-CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
+CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" LDFLAGS="$RPM_LD_FLAGS" \
 	CXXFLAGS="`echo " $OPT_FLAGS " | sed 's/ -Wall / /g;s/ -fexceptions / /g' \
 		  | sed 's/ -Wformat-security / -Wformat -Wformat-security /'`" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
@@ -953,7 +983,7 @@ CONFIGURE_OPTS="\
 %ifarch ppc64le
 	--enable-targets=powerpcle-linux \
 %endif
-%ifarch ppc64le %{mips} riscv64
+%ifarch ppc64le %{mips} riscv64 s390x
 	--disable-multilib \
 %else
 	--enable-multilib \
@@ -1016,7 +1046,7 @@ CONFIGURE_OPTS="\
 	--build=%{gcc_target_platform} --target=%{gcc_target_platform} --with-cpu=default32
 %endif
 %ifarch %{ix86} x86_64
-%if 0%{?rhel} > 7
+%if 0%{?fedora} || 0%{?rhel} > 7
 	--enable-cet \
 %endif
 	--with-tune=generic \
@@ -1039,7 +1069,7 @@ CONFIGURE_OPTS="\
 %ifarch s390 s390x
 %if 0%{?rhel} >= 7
 %if 0%{?rhel} > 7
-	--with-arch=zEC12 --with-tune=z13 \
+	--with-arch=z13 --with-tune=z14 \
 %else
 	--with-arch=z196 --with-tune=zEC12 \
 %endif
@@ -1076,19 +1106,22 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	$CONFIGURE_OPTS
 
 %ifarch sparc sparcv9 sparc64
-make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" bootstrap
+make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" BOOT_LDFLAGS="$RPM_LD_FLAGS" \
+       LDFLAGS_FOR_TARGET="$RPM_LD_FLAGS" bootstrap
 %else
-make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" profiledbootstrap
+make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" BOOT_LDFLAGS="$RPM_LD_FLAGS" \
+       LDFLAGS_FOR_TARGET="$RPM_LD_FLAGS" profiledbootstrap
 %endif
 
 CC="`%{gcc_target_platform}/libstdc++-v3/scripts/testsuite_flags --build-cc`"
 CXX="`%{gcc_target_platform}/libstdc++-v3/scripts/testsuite_flags --build-cxx` `%{gcc_target_platform}/libstdc++-v3/scripts/testsuite_flags --build-includes`"
 
+%if %{build_libgccjit}
 # Build libgccjit separately, so that normal compiler binaries aren't -fpic
 # unnecessarily.
 mkdir objlibgccjit
 cd objlibgccjit
-CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
+CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" LDFLAGS="$RPM_LD_FLAGS" \
 	CXXFLAGS="`echo " $OPT_FLAGS " | sed 's/ -Wall / /g;s/ -fexceptions / /g' \
 		  | sed 's/ -Wformat-security / -Wformat -Wformat-security /'`" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
@@ -1105,6 +1138,7 @@ rm Makefile.orig
 make jit.sphinx.html
 make jit.sphinx.install-html jit_htmldir=`pwd`/../../rpm.doc/libgccjit-devel/html
 cd ..
+%endif
 
 # Make generated man pages even if Pod::Man is not new enough
 perl -pi -e 's/head3/head2/' ../contrib/texi2pod.pl
@@ -1385,11 +1419,13 @@ for f in `find %{buildroot}%{_prefix}/share/gcc-%{gcc_major}/python/ \
   %{__python3} -O -c 'import py_compile; py_compile.compile("'$f'", dfile="'$r'")'
 done
 
+%if %{build_libgccjit}
 rm -f $FULLEPATH/libgccjit.so
 cp -a objlibgccjit/gcc/libgccjit.so* %{buildroot}%{_prefix}/%{_lib}/
 cp -a ../gcc/jit/libgccjit*.h %{buildroot}%{_prefix}/include/
 /usr/bin/install -c -m 644 objlibgccjit/gcc/doc/libgccjit.info %{buildroot}/%{_infodir}/
 gzip -9 %{buildroot}/%{_infodir}/libgccjit.info
+%endif
 
 pushd $FULLPATH
 if [ "%{_lib}" = "lib" ]; then
@@ -2305,14 +2341,6 @@ fi
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/vec_types.h
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/htmintrin.h
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/htmxlintrin.h
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/bmi2intrin.h
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/bmiintrin.h
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/xmmintrin.h
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/mm_malloc.h
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/emmintrin.h
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/mmintrin.h
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/x86intrin.h
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/amo.h
 %endif
 %ifarch %{arm}
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/include/unwind-arm-common.h
@@ -3076,6 +3104,7 @@ fi
 %endif
 %endif
 
+%if %{build_libgccjit}
 %files -n libgccjit
 %{_prefix}/%{_lib}/libgccjit.so.*
 %doc rpm.doc/changelogs/gcc/jit/ChangeLog*
@@ -3086,6 +3115,7 @@ fi
 %{_infodir}/libgccjit.info*
 %doc rpm.doc/libgccjit-devel/*
 %doc gcc/jit/docs/examples
+%endif
 
 %files plugin-devel
 %dir %{_prefix}/lib/gcc
