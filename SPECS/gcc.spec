@@ -901,8 +901,8 @@ mkdir obj-%{gcc_target_platform}
 cd obj-%{gcc_target_platform}
 CC="$CC" CXX="$CXX" CFLAGS="%{optflags}" CXXFLAGS="%{optflags}" \
 ../configure --prefix=%{_prefix}
-make %{?_smp_mflags}
-make install prefix=${IROOT}%{_prefix}
+make -s %{?_smp_mflags}
+make -s install prefix=${IROOT}%{_prefix}
 cd ../..
 
 ln -sf nvptx-newlib-%{nvptx_newlib_gitrev}/newlib newlib
@@ -922,7 +922,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	--with-bugurl=http://bugzilla.redhat.com/bugzilla \
 	--enable-checking=release --with-system-zlib \
 	--with-gcc-major-version-only --without-isl
-make %{?_smp_mflags}
+make -s %{?_smp_mflags}
 cd ..
 rm -f newlib
 %endif
@@ -1073,9 +1073,9 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	$CONFIGURE_OPTS
 
 %ifarch sparc sparcv9 sparc64
-make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" bootstrap
+make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" bootstrap
 %else
-make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" profiledbootstrap
+make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" profiledbootstrap
 %endif
 
 CC="`%{gcc_target_platform}/libstdc++-v3/scripts/testsuite_flags --build-cc`"
@@ -1091,7 +1091,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
 	../../configure --disable-bootstrap --enable-host-shared \
 	--enable-languages=jit $CONFIGURE_OPTS
-make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" all-gcc
+make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" all-gcc
 cp -a gcc/libgccjit.so* ../gcc/
 cd ../gcc/
 ln -sf xgcc %{gcc_target_platform}-gcc-%{gcc_major}
@@ -1168,12 +1168,12 @@ rm -rf %{buildroot}
 %if %{build_offload_nvptx}
 cd nvptx-tools-%{nvptx_tools_gitrev}
 cd obj-%{gcc_target_platform}
-make install prefix=%{buildroot}%{_prefix}
+make -s install prefix=%{buildroot}%{_prefix}
 cd ../..
 
 ln -sf nvptx-newlib-%{nvptx_newlib_gitrev}/newlib newlib
 cd obj-offload-nvptx-none
-make prefix=%{buildroot}%{_prefix} mandir=%{buildroot}%{_mandir} \
+make -s prefix=%{buildroot}%{_prefix} mandir=%{buildroot}%{_mandir} \
   infodir=%{buildroot}%{_infodir} install
 rm -rf %{buildroot}%{_prefix}/libexec/gcc/nvptx-none/%{gcc_major}/install-tools
 rm -rf %{buildroot}%{_prefix}/libexec/gcc/%{gcc_target_platform}/%{gcc_major}/accel/nvptx-none/{install-tools,plugin,cc1,cc1plus,f951}
@@ -1196,9 +1196,9 @@ cd obj-%{gcc_target_platform}
 TARGET_PLATFORM=%{gcc_target_platform}
 
 # There are some MP bugs in libstdc++ Makefiles
-make -C %{gcc_target_platform}/libstdc++-v3
+make -s -C %{gcc_target_platform}/libstdc++-v3
 
-make prefix=%{buildroot}%{_prefix} mandir=%{buildroot}%{_mandir} \
+make -s prefix=%{buildroot}%{_prefix} mandir=%{buildroot}%{_mandir} \
   infodir=%{buildroot}%{_infodir} install
 %if %{build_ada}
 chmod 644 %{buildroot}%{_infodir}/gnat*
