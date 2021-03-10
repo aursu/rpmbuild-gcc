@@ -8,18 +8,6 @@ services:
       context: .
       args:
         centos: $OS7
-    command:
-      - "-ba"
-      - "--without"
-      - doc
-      - "--without"
-      - selftests
-      - "--without"
-      - debuginfo
-      - "--without"
-      - kabidwchk
-      - "--without"
-      - kabidw-base
 
 volumes:
   rpms:
