@@ -903,9 +903,9 @@ rm -rf obj-%{gcc_target_platform}
 mkdir obj-%{gcc_target_platform}
 cd obj-%{gcc_target_platform}
 CC="$CC" CXX="$CXX" CFLAGS="%{optflags}" CXXFLAGS="%{optflags}" \
-../configure --silent --prefix=%{_prefix}
-make -s %{?_smp_mflags} LIBTOOLFLAGS="--silent"
-make -s install prefix=${IROOT}%{_prefix}
+../configure --prefix=%{_prefix}
+make %{?_smp_mflags}
+make install prefix=${IROOT}%{_prefix}
 cd ../..
 
 ln -sf nvptx-newlib-%{nvptx_newlib_gitrev}/newlib newlib
@@ -917,7 +917,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	CXXFLAGS="`echo " $OPT_FLAGS " | sed 's/ -Wall / /g;s/ -fexceptions / /g' \
 		  | sed 's/ -Wformat-security / -Wformat -Wformat-security /'`" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
-	../configure --silent --disable-bootstrap --disable-sjlj-exceptions \
+	../configure --disable-bootstrap --disable-sjlj-exceptions \
 	--enable-newlib-io-long-long --with-build-time-tools=${IROOT}%{_prefix}/nvptx-none/bin \
 	--target nvptx-none --enable-as-accelerator-for=%{gcc_target_platform} \
 	--enable-languages=c,c++,fortran,lto \
@@ -925,7 +925,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	--with-bugurl=http://bugzilla.redhat.com/bugzilla \
 	--enable-checking=release --with-system-zlib \
 	--with-gcc-major-version-only --without-isl
-make -s %{?_smp_mflags} LIBTOOLFLAGS="--silent"
+make %{?_smp_mflags}
 cd ..
 rm -f newlib
 %endif
@@ -947,7 +947,7 @@ enablelada=,ada
 enablelgo=,go
 %endif
 CONFIGURE_OPTS="\
-	--silent --prefix=%{_prefix} --mandir=%{_mandir} --infodir=%{_infodir} \
+	--prefix=%{_prefix} --mandir=%{_mandir} --infodir=%{_infodir} \
 	--with-bugurl=http://bugzilla.redhat.com/bugzilla \
 	--enable-shared --enable-threads=posix --enable-checking=release \
 %ifarch ppc64le
@@ -1071,14 +1071,14 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	CXXFLAGS="`echo " $OPT_FLAGS " | sed 's/ -Wall / /g;s/ -fexceptions / /g' \
 		  | sed 's/ -Wformat-security / -Wformat -Wformat-security /'`" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
-	../configure --silent --enable-bootstrap \
+	../configure --enable-bootstrap \
 	--enable-languages=c,c++,fortran${enablelobjc}${enablelada}${enablelgo},lto \
 	$CONFIGURE_OPTS
 
 %ifarch sparc sparcv9 sparc64
-make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LIBTOOLFLAGS="--silent" bootstrap
+make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" bootstrap
 %else
-make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LIBTOOLFLAGS="--silent" profiledbootstrap
+make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" profiledbootstrap
 %endif
 
 CC="`%{gcc_target_platform}/libstdc++-v3/scripts/testsuite_flags --build-cc`"
@@ -1092,9 +1092,9 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	CXXFLAGS="`echo " $OPT_FLAGS " | sed 's/ -Wall / /g;s/ -fexceptions / /g' \
 		  | sed 's/ -Wformat-security / -Wformat -Wformat-security /'`" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
-	../../configure --silent --disable-bootstrap --enable-host-shared \
+	../../configure --disable-bootstrap --enable-host-shared \
 	--enable-languages=jit $CONFIGURE_OPTS
-make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LIBTOOLFLAGS="--silent" all-gcc
+make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" all-gcc
 cp -a gcc/libgccjit.so* ../gcc/
 cd ../gcc/
 ln -sf xgcc %{gcc_target_platform}-gcc-%{gcc_major}
@@ -1171,12 +1171,12 @@ rm -rf %{buildroot}
 %if %{build_offload_nvptx}
 cd nvptx-tools-%{nvptx_tools_gitrev}
 cd obj-%{gcc_target_platform}
-make -s install prefix=%{buildroot}%{_prefix}
+make install prefix=%{buildroot}%{_prefix}
 cd ../..
 
 ln -sf nvptx-newlib-%{nvptx_newlib_gitrev}/newlib newlib
 cd obj-offload-nvptx-none
-make -s prefix=%{buildroot}%{_prefix} mandir=%{buildroot}%{_mandir} \
+make prefix=%{buildroot}%{_prefix} mandir=%{buildroot}%{_mandir} \
   infodir=%{buildroot}%{_infodir} install
 rm -rf %{buildroot}%{_prefix}/libexec/gcc/nvptx-none/%{gcc_major}/install-tools
 rm -rf %{buildroot}%{_prefix}/libexec/gcc/%{gcc_target_platform}/%{gcc_major}/accel/nvptx-none/{install-tools,plugin,cc1,cc1plus,f951}
@@ -1199,9 +1199,9 @@ cd obj-%{gcc_target_platform}
 TARGET_PLATFORM=%{gcc_target_platform}
 
 # There are some MP bugs in libstdc++ Makefiles
-make -s -C %{gcc_target_platform}/libstdc++-v3
+make -C %{gcc_target_platform}/libstdc++-v3
 
-make -s prefix=%{buildroot}%{_prefix} mandir=%{buildroot}%{_mandir} \
+make prefix=%{buildroot}%{_prefix} mandir=%{buildroot}%{_mandir} \
   infodir=%{buildroot}%{_infodir} install
 %if %{build_ada}
 chmod 644 %{buildroot}%{_infodir}/gnat*
