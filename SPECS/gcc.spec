@@ -1013,7 +1013,9 @@ CONFIGURE_OPTS="\
 	--build=%{gcc_target_platform} --target=%{gcc_target_platform} --with-cpu=default32
 %endif
 %ifarch %{ix86} x86_64
+%if 0%{?rhel} > 7
 	--enable-cet \
+%endif
 	--with-tune=generic \
 %endif
 %if 0%{?rhel} >= 7
@@ -2479,7 +2481,7 @@ fi
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/liblsan_preinit.o
 %endif
 %{_prefix}/libexec/getconf/default
-%doc gcc/README* rpm.doc/changelogs/gcc/ChangeLog* 
+%doc gcc/README* rpm.doc/changelogs/gcc/ChangeLog*
 %{!?_licensedir:%global license %%doc}
 %license gcc/COPYING* COPYING.RUNTIME
 

@@ -17,6 +17,7 @@ RUN yum -y install \
         libgnat \
         libmpc-devel \
         mpfr-devel \
+        python-sphinx \
         python2-devel \
         python3-devel \
         sharutils \
