@@ -16,7 +16,7 @@
 %undefine _annotated_build
 %endif
 %global multilib_64_archs sparc64 ppc64 ppc64p7 x86_64
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %global build_ada 0
 %global build_objc 0
 %global build_go 0
@@ -70,7 +70,7 @@
 %else
 %global build_libitm 0
 %endif
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %global build_libmpx 0
 %else
 %ifarch %{ix86} x86_64
