@@ -1,6 +1,6 @@
 version: "3.4"
 services:
-  centos7gccbuild:
+  centos7build:
     volumes:
       - rpms:/home/centos/rpmbuild/SRPMS
       - rpm7:/home/centos/rpmbuild/RPMS
@@ -12,5 +12,5 @@ services:
 volumes:
   rpms:
     name: rpms
-  rpm8:
+  rpm7:
     name: rpm7
