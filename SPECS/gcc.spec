@@ -903,8 +903,8 @@ rm -rf obj-%{gcc_target_platform}
 mkdir obj-%{gcc_target_platform}
 cd obj-%{gcc_target_platform}
 CC="$CC" CXX="$CXX" CFLAGS="%{optflags}" CXXFLAGS="%{optflags}" \
-../configure --prefix=%{_prefix}
-make -s %{?_smp_mflags}
+../configure --silent --prefix=%{_prefix}
+make -s %{?_smp_mflags} LIBTOOLFLAGS="--silent"
 make -s install prefix=${IROOT}%{_prefix}
 cd ../..
 
@@ -917,7 +917,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	CXXFLAGS="`echo " $OPT_FLAGS " | sed 's/ -Wall / /g;s/ -fexceptions / /g' \
 		  | sed 's/ -Wformat-security / -Wformat -Wformat-security /'`" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
-	../configure --disable-bootstrap --disable-sjlj-exceptions \
+	../configure --silent --disable-bootstrap --disable-sjlj-exceptions \
 	--enable-newlib-io-long-long --with-build-time-tools=${IROOT}%{_prefix}/nvptx-none/bin \
 	--target nvptx-none --enable-as-accelerator-for=%{gcc_target_platform} \
 	--enable-languages=c,c++,fortran,lto \
@@ -925,7 +925,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	--with-bugurl=http://bugzilla.redhat.com/bugzilla \
 	--enable-checking=release --with-system-zlib \
 	--with-gcc-major-version-only --without-isl
-make -s %{?_smp_mflags}
+make -s %{?_smp_mflags} LIBTOOLFLAGS="--silent"
 cd ..
 rm -f newlib
 %endif
@@ -947,7 +947,7 @@ enablelada=,ada
 enablelgo=,go
 %endif
 CONFIGURE_OPTS="\
-	--prefix=%{_prefix} --mandir=%{_mandir} --infodir=%{_infodir} \
+	--silent --prefix=%{_prefix} --mandir=%{_mandir} --infodir=%{_infodir} \
 	--with-bugurl=http://bugzilla.redhat.com/bugzilla \
 	--enable-shared --enable-threads=posix --enable-checking=release \
 %ifarch ppc64le
@@ -1071,7 +1071,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	CXXFLAGS="`echo " $OPT_FLAGS " | sed 's/ -Wall / /g;s/ -fexceptions / /g' \
 		  | sed 's/ -Wformat-security / -Wformat -Wformat-security /'`" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
-	../configure --enable-bootstrap \
+	../configure --silent --enable-bootstrap \
 	--enable-languages=c,c++,fortran${enablelobjc}${enablelada}${enablelgo},lto \
 	$CONFIGURE_OPTS
 
@@ -1092,7 +1092,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	CXXFLAGS="`echo " $OPT_FLAGS " | sed 's/ -Wall / /g;s/ -fexceptions / /g' \
 		  | sed 's/ -Wformat-security / -Wformat -Wformat-security /'`" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
-	../../configure --disable-bootstrap --enable-host-shared \
+	../../configure --silent --disable-bootstrap --enable-host-shared \
 	--enable-languages=jit $CONFIGURE_OPTS
 make -s %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LIBTOOLFLAGS="--silent" all-gcc
 cp -a gcc/libgccjit.so* ../gcc/
