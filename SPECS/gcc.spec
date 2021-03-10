@@ -223,12 +223,12 @@ Requires: cpp = %{version}-%{release}
 # Need binutils that support .loc view >= 2.30
 # Need binutils which support --generate-missing-build-notes=yes >= 2.31
 %if 0%{?fedora} >= 29
-BuildRequires: binutils >= 2.31
+Requires: binutils >= 2.31
 %else
 %if 0%{?rhel} > 7
-BuildRequires: binutils >= 2.30-17
+Requires: binutils >= 2.30-17
 %else
-BuildRequires: binutils >= 2.24
+Requires: binutils >= 2.24
 %endif
 %endif
 # Make sure gdb will understand DW_FORM_strp
