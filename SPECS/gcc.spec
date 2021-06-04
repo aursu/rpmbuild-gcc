@@ -104,6 +104,7 @@
 %global multilib_32_arch i686
 %endif
 
+%define _debugsource_template %{nil}
 %define debug_package %{nil}
 
 Summary: Various compilers (C, C++, Objective-C, ...)
