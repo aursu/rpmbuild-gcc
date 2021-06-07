@@ -1,10 +1,10 @@
-%global DATE 20191121
-%global SVNREV 278589
-%global gcc_version 8.3.1
+%global DATE 20210423
+%global gitrev 81036e6dfb5dac2e9186f0071f7f2048e81e65fa
+%global gcc_version 8.4.1
 %global gcc_major 8
 # Note, gcc_release must be integer, if you want to add suffixes to
 # %%{release}, append them after %%{gcc_release} on Release: line.
-%global gcc_release 5
+%global gcc_release 2
 %global nvptx_tools_gitrev c28050f60193b3b95a18866a96f03334e874e78f
 %global nvptx_newlib_gitrev aadc8eb0ec43b7cd0dd2dfb484bae63c8b05ef24
 %global _unpackaged_files_terminate_build 0
@@ -119,22 +119,23 @@ License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ with exceptions and LGPLv2
 Group: Development/Languages
 # The source for this package was pulled from upstream's vcs.  Use the
 # following commands to generate the tarball:
-# svn export svn://gcc.gnu.org/svn/gcc/branches/redhat/gcc-8-branch@%%{SVNREV} gcc-%%{version}-%%{DATE}
-# tar cf - gcc-%%{version}-%%{DATE} | xz -9e > gcc-%%{version}-%%{DATE}.tar.xz
+# git clone --depth 1 git://gcc.gnu.org/git/gcc.git gcc-dir.tmp
+# git --git-dir=gcc-dir.tmp/.git fetch --depth 1 origin %%{gitrev}
+# git --git-dir=gcc-dir.tmp/.git archive --prefix=%%{name}-%%{version}-%%{DATE}/ %%{gitrev} | xz -9e > %%{name}-%%{version}-%%{DATE}.tar.xz
+# rm -rf gcc-dir.tmp
 Source0: gcc-%{version}-%{DATE}.tar.xz
 # The source for nvptx-tools package was pulled from upstream's vcs.  Use the
 # following commands to generate the tarball:
-# git clone https://github.com/MentorEmbedded/nvptx-tools.git
-# cd nvptx-tools
-# git archive origin/master --prefix=nvptx-tools-%%{nvptx_tools_gitrev}/ | xz -9e > ../nvptx-tools-%%{nvptx_tools_gitrev}.tar.xz
-# cd ..; rm -rf nvptx-tools
+# git clone --depth 1 git://github.com/MentorEmbedded/nvptx-tools.git nvptx-tools-dir.tmp
+# git --git-dir=nvptx-tools-dir.tmp/.git fetch --depth 1 origin %%{nvptx_tools_gitrev}
+# git --git-dir=nvptx-tools-dir.tmp/.git archive --prefix=nvptx-tools-%%{nvptx_tools_gitrev}/ %%{nvptx_tools_gitrev} | xz -9e > nvptx-tools-%%{nvptx_tools_gitrev}.tar.xz
+# rm -rf nvptx-tools-dir.tmp
 Source1: nvptx-tools-%{nvptx_tools_gitrev}.tar.xz
 # The source for nvptx-newlib package was pulled from upstream's vcs.  Use the
 # following commands to generate the tarball:
-# git clone https://github.com/MentorEmbedded/nvptx-newlib.git
-# cd nvptx-newlib
-# git archive origin/master --prefix=nvptx-newlib-%%{nvptx_newlib_gitrev}/ | xz -9 > ../nvptx-newlib-%%{nvptx_newlib_gitrev}.tar.xz
-# cd ..; rm -rf nvptx-newlib
+# git clone git://sourceware.org/git/newlib-cygwin.git newlib-cygwin-dir.tmp
+# git --git-dir=newlib-cygwin-dir.tmp/.git archive --prefix=newlib-cygwin-%%{newlib_cygwin_gitrev}/ %%{newlib_cygwin_gitrev} ":(exclude)newlib/libc/sys/linux/include/rpc/*.[hx]" | xz -9e > newlib-cygwin-%%{newlib_cygwin_gitrev}.tar.xz
+# rm -rf newlib-cygwin-dir.tmp
 Source2: nvptx-newlib-%{nvptx_newlib_gitrev}.tar.xz
 %global isl_version 0.16.1
 URL: http://gcc.gnu.org
@@ -277,12 +278,9 @@ Patch12: gcc8-mcet.patch
 Patch13: gcc8-rh1574936.patch
 Patch14: gcc8-libgcc-hardened.patch
 Patch15: gcc8-rh1670535.patch
-Patch17: gcc8-libgomp-20190503.patch
-Patch18: gcc8-pr86747.patch
-Patch19: gcc8-libgomp-testsuite.patch
-Patch20: gcc8-pr91601.patch
-Patch21: gcc8-pr92775.patch
-Patch22: gcc8-pr92950.patch
+Patch16: gcc8-libgomp-20190503.patch
+Patch17: gcc8-libgomp-testsuite.patch
+Patch18: gcc8-remove-old-demangle.patch
 
 Patch30: gcc8-rh1668903-1.patch
 Patch31: gcc8-rh1668903-2.patch
@@ -857,12 +855,9 @@ to NVidia PTX capable devices if available.
 %patch14 -p0 -b .libgcc-hardened~
 %endif
 %patch15 -p0 -b .rh1670535~
-%patch17 -p0 -b .libgomp-20190503~
-%patch18 -p0 -b .pr86747~
-%patch19 -p0 -b .libgomp-testsuite~
-%patch20 -p0 -b .pr91601~
-%patch21 -p0 -b .pr92775~
-%patch22 -p0 -b .pr92950~
+%patch16 -p0 -b .libgomp-20190503~
+%patch17 -p0 -b .libgomp-testsuite~
+%patch18 -p0 -b .demangle~
 
 %patch30 -p0 -b .rh1668903-1~
 %patch31 -p0 -b .rh1668903-2~
@@ -2452,11 +2447,11 @@ fi
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libgomp.a
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libgomp.so
 %if %{build_libquadmath}
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libquadmath.a
+#%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libquadmath.a
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libquadmath.so
 %endif
 %if %{build_libitm}
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libitm.a
+#%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libitm.a
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libitm.so
 %endif
 %if %{build_libatomic}
@@ -2464,12 +2459,12 @@ fi
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libatomic.so
 %endif
 %if %{build_libasan}
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libasan.a
+#%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libasan.a
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libasan.so
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libasan_preinit.o
 %endif
 %if %{build_libubsan}
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libubsan.a
+#%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libubsan.a
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libubsan.so
 %endif
 %if %{build_libmpx}
@@ -2723,7 +2718,7 @@ fi
 %ifarch %{multilib_64_archs}
 %dir %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libcaf_single.a
-%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libgfortran.a
+#%{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libgfortran.a
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/libgfortran.so
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/32/finclude
 %endif
@@ -3183,6 +3178,26 @@ fi
 %endif
 
 %changelog
+* Mon Apr 26 2021 Marek Polacek <polacek@redhat.com> 8.4.1-2.1
+- remove support for demangling GCC 2.x era mangling schemes (#1668394)
+
+* Fri Apr 23 2021 Marek Polacek <polacek@redhat.com> 8.4.1-2
+- update from GCC 8.4 release (#1946758)
+
+* Fri Apr  9 2021 Marek Polacek <polacek@redhat.com> 8.4.1-1.2
+- back out the PR97236 patch
+
+* Fri Apr  9 2021 Marek Polacek <polacek@redhat.com> 8.4.1-1.1
+- fix bad use of VMAT_CONTIGUOUS (PR tree-optimization/97236, #1925632)
+
+* Tue Sep 29 2020 Marek Polacek <polacek@redhat.com> 8.4.1-1
+- update from GCC 8.4 release (#1868446)
+- remove symlinks to 32-bit versions of these static libraries: libasan.a,
+  libitm.a, libquadmath.a, libubsan.a, libgfortran.a (#1779597)
+
+* Wed Jul 15 2020 Marek Polacek <polacek@redhat.com> 8.3.1-5.2
+- backport aarch64 LSE atomics (#1821994)
+
 * Tue May 12 2020 Marek Polacek <polacek@redhat.com> 8.3.1-5.1
 - consider negative edges in cycle detection (#1817991, PR gcov-profile/91601)
 - fix Fortran debug info for arrays with descriptors (#1655624,
