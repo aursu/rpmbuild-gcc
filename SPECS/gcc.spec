@@ -104,6 +104,8 @@
 %global multilib_32_arch i686
 %endif
 
+%bcond_with    tests
+
 %define _debugsource_template %{nil}
 %define debug_package %{nil}
 
@@ -1984,6 +1986,7 @@ rm -f %{buildroot}%{mandir}/man3/ffi*
 echo gcc-%{version}-%{release}.%{_arch} > $FULLPATH/rpmver
 
 %check
+%if %{with tests}
 cd obj-%{gcc_target_platform}
 
 # run the tests.
@@ -2003,6 +2006,7 @@ done
 tar cf - testlogs-%{_target_platform}-%{version}-%{release} | xz -9e \
   | uuencode testlogs-%{_target_platform}.tar.xz || :
 rm -rf testlogs-%{_target_platform}-%{version}-%{release}
+%endif
 
 %post
 if [ -f %{_infodir}/gcc.info.gz ]; then
