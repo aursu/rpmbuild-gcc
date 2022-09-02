@@ -1,0 +1,108 @@
+From 621de498ee19e1f2642eebde707430254c0459c0 Mon Sep 17 00:00:00 2001
+From: "H.J. Lu" <hjl.tools@gmail.com>
+Date: Wed, 5 Jan 2022 16:33:16 -0800
+Subject: [PATCH 3/4] x86: Rename -harden-sls=indirect-branch to
+ -harden-sls=indirect-jmp
+
+Indirect branch also includes indirect call instructions.  Rename
+-harden-sls=indirect-branch to -harden-sls=indirect-jmp to match its
+intended behavior.
+
+	PR target/102952
+	* config/i386/i386-opts.h (harden_sls): Replace
+	harden_sls_indirect_branch with harden_sls_indirect_jmp.
+	* config/i386/i386.c (ix86_output_jmp_thunk_or_indirect):
+	Likewise.
+	(ix86_output_indirect_jmp): Likewise.
+	(ix86_output_call_insn): Likewise.
+	* config/i386/i386.opt: Replace indirect-branch with
+	indirect-jmp.  Replace harden_sls_indirect_branch with
+	harden_sls_indirect_jmp.
+	* doc/invoke.texi (-harden-sls=): Replace indirect-branch with
+	indirect-jmp.
+
+(cherry picked from commit ed8060950c64f2e449aaf90e438aa26d0d9d0b31)
+---
+ gcc/config/i386/i386-opts.h | 4 ++--
+ gcc/config/i386/i386.c      | 6 +++---
+ gcc/config/i386/i386.opt    | 2 +-
+ gcc/doc/invoke.texi         | 4 ++--
+ 4 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/gcc/config/i386/i386-opts.h b/gcc/config/i386/i386-opts.h
+index 34718b6d52c..47facc254cd 100644
+--- a/gcc/config/i386/i386-opts.h
++++ b/gcc/config/i386/i386-opts.h
+@@ -122,8 +122,8 @@ enum indirect_branch {
+ enum harden_sls {
+   harden_sls_none = 0,
+   harden_sls_return = 1 << 0,
+-  harden_sls_indirect_branch = 1 << 1,
+-  harden_sls_all = harden_sls_return | harden_sls_indirect_branch
++  harden_sls_indirect_jmp = 1 << 1,
++  harden_sls_all = harden_sls_return | harden_sls_indirect_jmp
+ };
+ 
+ #endif
+diff --git a/gcc/config/i386/i386.c b/gcc/config/i386/i386.c
+index 8442dd0daea..3bc14e20105 100644
+--- a/gcc/config/i386/i386.c
++++ b/gcc/config/i386/i386.c
+@@ -28736,7 +28736,7 @@ ix86_output_jmp_thunk_or_indirect (const char *thunk_name,
+ 	}
+       assemble_name (asm_out_file, thunk_name);
+       putc ('\n', asm_out_file);
+-      if ((ix86_harden_sls & harden_sls_indirect_branch))
++      if ((ix86_harden_sls & harden_sls_indirect_jmp))
+ 	fputs ("\tint3\n", asm_out_file);
+     }
+   else
+@@ -28991,7 +28991,7 @@ ix86_output_indirect_jmp (rtx call_op)
+     }
+   else
+     output_asm_insn ("%!jmp\t%A0", &call_op);
+-  return (ix86_harden_sls & harden_sls_indirect_branch) ? "int3" : "";
++  return (ix86_harden_sls & harden_sls_indirect_jmp) ? "int3" : "";
+ }
+ 
+ /* Output function return.  CALL_OP is the jump target.  Add a REP
+@@ -29178,7 +29178,7 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
+ 	{
+ 	  output_asm_insn (xasm, &call_op);
+ 	  if (!direct_p
+-	      && (ix86_harden_sls & harden_sls_indirect_branch))
++	      && (ix86_harden_sls & harden_sls_indirect_jmp))
+ 	    return "int3";
+ 	}
+       return "";
+diff --git a/gcc/config/i386/i386.opt b/gcc/config/i386/i386.opt
+index 9f67ef558dc..7a5c7b9369a 100644
+--- a/gcc/config/i386/i386.opt
++++ b/gcc/config/i386/i386.opt
+@@ -1075,7 +1075,7 @@ EnumValue
+ Enum(harden_sls) String(return) Value(harden_sls_return)
+ 
+ EnumValue
+-Enum(harden_sls) String(indirect-branch) Value(harden_sls_indirect_branch)
++Enum(harden_sls) String(indirect-jmp) Value(harden_sls_indirect_jmp)
+ 
+ EnumValue
+ Enum(harden_sls) String(all) Value(harden_sls_all)
+diff --git a/gcc/doc/invoke.texi b/gcc/doc/invoke.texi
+index 605cd4b93f1..20d8e3fd782 100644
+--- a/gcc/doc/invoke.texi
++++ b/gcc/doc/invoke.texi
+@@ -28041,8 +28041,8 @@ Force indirect call and jump via register.
+ @opindex mharden-sls
+ Generate code to mitigate against straight line speculation (SLS) with
+ @var{choice}.  The default is @samp{none} which disables all SLS
+-hardening.  @samp{return} enables SLS hardening for function return.
+-@samp{indirect-branch} enables SLS hardening for indirect branch.
++hardening.  @samp{return} enables SLS hardening for function returns.
++@samp{indirect-jmp} enables SLS hardening for indirect jumps.
+ @samp{all} enables all SLS hardening.
+ 
+ @item -mindirect-branch-cs-prefix
+-- 
+2.36.1
+

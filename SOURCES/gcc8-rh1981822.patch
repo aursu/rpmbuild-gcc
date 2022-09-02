@@ -25,8 +25,6 @@ gcc/testsuite/ChangeLog:
  2 files changed, 13 insertions(+), 9 deletions(-)
  create mode 100644 gcc/testsuite/g++.dg/abi/lambda-defarg1.C
 
-diff --git a/gcc/cp/mangle.c b/gcc/cp/mangle.c
-index 6c111342b97..4399165ee23 100644
 --- gcc/cp/mangle.c
 +++ gcc/cp/mangle.c
 @@ -1628,6 +1628,7 @@ write_literal_operator_name (tree identifier)
@@ -54,9 +52,6 @@ index 6c111342b97..4399165ee23 100644
        write_char ('d');
        write_compact_number (i - 1);
      }
-diff --git a/gcc/testsuite/g++.dg/abi/lambda-defarg1.C b/gcc/testsuite/g++.dg/abi/lambda-defarg1.C
-new file mode 100644
-index 00000000000..8c538581240
 --- /dev/null
 +++ gcc/testsuite/g++.dg/abi/lambda-defarg1.C
 @@ -0,0 +1,11 @@
