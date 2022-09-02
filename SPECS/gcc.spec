@@ -847,25 +847,6 @@ NVidia PTX.  OpenMP and OpenACC programs linked with -fopenmp will
 by default add PTX code into the binaries, which can be offloaded
 to NVidia PTX capable devices if available.
 
-%package plugin-annobin
-Summary: The annobin plugin for gcc, built by the installed version of gcc
-Requires: gcc = %{version}-%{release}
-# Starting with release 10.01 annobin fixed a bug in its configure scripts
-# which prevented them from working with a built but not installed compiler
-BuildRequires: annobin >= 10.01
-# Starting with release  9.93 annobin-plugin-gcc puts a copy of the sources
-# in /usr/src/annobin
-# FIXME: Currently the annobin-plugin-gcc subpackage only exists in Fedora.
-# For RHEL-9 the annobin package does everything.
-# BuildRequires: annobin-plugin-gcc
-# Needed in order to be able to decompress the annobin source tarball.
-BuildRequires: xz
-
-%description plugin-annobin
-This package adds a version of the annobin plugin for gcc.  This version
-of the plugin is explicitly built by the same version of gcc that is installed
-so that there cannot be any synchronization problems.
-
 %prep
 %setup -q -n gcc-%{version}-%{DATE} -a 1 -a 2
 %patch0 -p0 -b .hack~
@@ -1250,82 +1231,6 @@ done)
 
 rm -f rpm.doc/changelogs/gcc/ChangeLog.[1-9]
 find rpm.doc -name \*ChangeLog\* | xargs bzip2 -9
-
-# Get the annobin sources.  Note these are not added to the rpm as SOURCE4
-# because if they were the build phase would try to include them as part of
-# gcc itself, and this causes problems.  Instead we locate the sources in
-# the buildroot.  They should have been put there when annobin was installed.
-
-pushd %{_builddir}
-
-%global annobin_source_dir %{_usrsrc}/annobin
-
-if [ -d %{annobin_source_dir} ]
-then
-    # Unpack the sources.
-    echo "Unpacking annobin sources"
-    rm -fr annobin-*
-    tar xvf %{annobin_source_dir}/latest-annobin.tar.xz
-
-    # Setting this as a local symbol because using %%global does not appear to work.
-    annobin_dir=$(find . -maxdepth 1 -type d -name "annobin*")
-
-    # Now build the annobin plugin using the just built compiler.
-    echo "annobin directory = ${annobin_dir}"
-    cd ${annobin_dir}
-
-    # Change the plugin so that it generates "nop" instead of ".nop" instructions.
-    sed -e "s/\.nop/nop/" -i gcc-plugin/annobin.cc
-
-    # Work out where this version of gcc stores its plugins.
-%global ANNOBIN_GCC_PLUGIN_DIR  %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/plugin
-
-    CONFIG_ARGS="--quiet"
-    CONFIG_ARGS="$CONFIG_ARGS --with-gcc-plugin-dir=%{ANNOBIN_GCC_PLUGIN_DIR}"
-    CONFIG_ARGS="$CONFIG_ARGS --without-annocheck"
-    CONFIG_ARGS="$CONFIG_ARGS --without-tests"
-    CONFIG_ARGS="$CONFIG_ARGS --disable-rpath"
-
-    comp_dir="%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/gcc/"
-    ccompiler="%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/gcc/xgcc -B $comp_dir"
-    cxxcompiler="%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/gcc/xg++ -B $comp_dir"
-
-    comp_flags="%build_cflags"
-    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/gcc"
-    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/gcc/"
-    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/include"
-    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/include/%{gcc_target_platform}"
-    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/libstdc++-v3/libsupc++"
-    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/include"
-    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/libcpp/include"
-
-    ld_flags="%build_ldflags"
-    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/libstdc++-v3/.libs"
-    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/.libs"
-    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/src/.libs"
-    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/libstdc++-v3/libsupc++/.libs"
-    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/libsupc++/.libs"
-    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libgcc/.libs"
-
-    # libtool works with CFLAGS but ignores LDFLAGS, so we have to combine them.
-    comp_flags="$comp_flags $ld_flags"
-
-    echo "Configuring the annobin plugin"
-    CC="${ccompiler}" CFLAGS="${comp_flags}" \
-      CXX="${cxxcompiler}" CXXFLAGS="${comp_flags}" \
-      LDFLAGS="${ld_flags}" \
-      ./configure ${CONFIG_ARGS}  || cat config.log
-
-    echo "Building the annobin plugin"
-    make
-
-    echo "Annobin plugin build complete"
-else
-    echo "Unable to locate annobin sources (expected to find: %{annobin_source_dir}/latest-annobin.tar.xz)"
-    echo "These should be provided by installing the annobin package"
-    exit 1
-fi
-popd
 
 %install
 rm -rf %{buildroot}
@@ -2105,20 +2010,6 @@ rm -f %{buildroot}%{mandir}/man3/ffi*
 
 # Help plugins find out nvra.
 echo gcc-%{version}-%{release}.%{_arch} > $FULLPATH/rpmver
-
-# Rename the annobin plugin to gcc-annobin.
-mkdir -p %{buildroot}%{ANNOBIN_GCC_PLUGIN_DIR}
-pushd    %{buildroot}%{ANNOBIN_GCC_PLUGIN_DIR}
-
-annobin_dir=$(find %{_builddir} -maxdepth 1 -type d -name "annobin*")
-echo "annobin directory = ${annobin_dir}"
-
-cp ${annobin_dir}/gcc-plugin/.libs/annobin.so.0.0.0 gcc-annobin.so.0.0.0
-
-rm -f gcc-annobin.so.0 gcc-annobin.so
-ln -s gcc-annobin.so.0.0.0 gcc-annobin.so.0
-ln -s gcc-annobin.so.0.0.0 gcc-annobin.so
-popd
 
 %check
 %if %{with tests}
@@ -3317,11 +3208,6 @@ fi
 %{_prefix}/%{_lib}/libgomp-plugin-nvptx.so.*
 %endif
 
-%files plugin-annobin
-%{ANNOBIN_GCC_PLUGIN_DIR}/gcc-annobin.so
-%{ANNOBIN_GCC_PLUGIN_DIR}/gcc-annobin.so.0
-%{ANNOBIN_GCC_PLUGIN_DIR}/gcc-annobin.so.0.0.0
-
 %changelog
 * Wed Jul 20 2022 Marek Polacek <polacek@redhat.com> 8.5.0-15
 - backport straight-line-speculation mitigation (#2108721)
@@ -3332,12 +3218,6 @@ fi
 * Wed Apr 20 2022 Marek Polacek <polacek@redhat.com> 8.5.0-13
 - require docbook-style-xsl instead of docbook5-style-xsl (#2073888)
 - backport Default widths with -fdec-format-defaults patch (#2074614)
-
-* Fri Apr 01 2022 Marek Polacek <polacek@redhat.com> 8.5.0-12
-- Fix nop generation in annobin plugin.  (#2067150)
-
-* Wed Mar 30 2022 Marek Polacek <polacek@redhat.com> 8.5.0-11
-- Add a plugin-annobin subpackage.  (#2067150)
 
 * Thu Jan 27 2022 Marek Polacek <polacek@redhat.com> 8.5.0-10
 - fix typo in the cprop_hardreg patch (#2028609)
