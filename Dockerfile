@@ -7,6 +7,7 @@ RUN yum -y install \
         /usr/lib/libc.so \
         /lib64/libc.so.6 \
         /usr/lib64/libc.so \
+        annobin \
         dejagnu \
         elfutils-devel \
         elfutils-libelf-devel \
