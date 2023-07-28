@@ -16,6 +16,7 @@ RUN yum -y install \
         gmp-devel \
         libgnat \
         libmpc-devel \
+        libzstd-devel \
         mpfr-devel \
         python-sphinx \
         python2-devel \
@@ -28,6 +29,7 @@ RUN yum -y install \
     && yum clean all && rm -rf /var/cache/yum
 
 RUN yum -y --enablerepo bintray-custom install \
+        annobin \
         isl-devel \
     && yum clean all && rm -rf /var/cache/yum
 
