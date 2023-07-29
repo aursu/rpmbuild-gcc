@@ -1,5 +1,5 @@
 ARG os=7.9.2009
-FROM aursu/gccbuild:${os}-build
+FROM aursu/gccbuild:${os}-base
 
 COPY SOURCES ${BUILD_TOPDIR}/SOURCES
 COPY SPECS ${BUILD_TOPDIR}/SPECS
