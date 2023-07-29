@@ -1,0 +1,110 @@
+commit 8b89515caca5149329c0cd20485e69e2d0f879d4
+Author: Marek Polacek <polacek@redhat.com>
+Date:   Wed Dec 7 13:44:38 2022 -0500
+
+    strlen: Use D_S_U in maybe_set_strlen_range
+    
+    This patch fixes #2137448 where the customer uses strlen on a buffer
+    that was filled by converting the buffer to a struct and copying a string
+    into a flexible array member of the struct.
+    
+    This regressed with r262438 in the sense that the strlen was folded to 0.
+    The strlen=0 result started with
+    https://gcc.gnu.org/pipermail/gcc-patches/2018-July/501912.html
+    https://gcc.gnu.org/git/?p=gcc.git;a=commitdiff;h=715fcd73b66c639d9e0e3f3ef9c6ff9d621d7131
+    which seems like an undesirable change.  It was fixed (back to strlen=3) by
+    https://gcc.gnu.org/legacy-ml/gcc-patches/2019-01/msg00069.html
+    https://gcc.gnu.org/git/?p=gcc.git;a=commitdiff;h=d4bf69750d31d08068f8242225b8fa06cdf11411
+    but the changes are not backportable.
+    
+    Instead, this patch makes maybe_set_strlen_range use DECL_SIZE_UNIT
+    rather than TYPE_SIZE_UNIT, fixing the regression.
+    
+    I could never reproduce the problem in C, only C++.  C/C++ represent array
+    type domains differently: C has
+    
+      char[0:]
+    
+    but C++
+    
+      char[0:18446744073709551615]
+    
+    I'm not sure if that explains it.  In any case, I put the new test into
+    c-c++-common/.
+    
+    Also, the original test had
+    
+      printf("strlen = %zu\n", strlen(q->name));
+    
+    so naturally, for the testsuite, I wanted to convert that into
+    
+      if (strlen(q->name) != ...)
+         __builtin_abort ();
+    
+    but then I could no longer reproduce the problem.  After some poking
+    I realized I want -fno-early-inlining.
+    
+    Co-authored-by: Jakub Jelinek <jakub@redhat.com>
+
+diff --git a/gcc/testsuite/c-c++-common/torture/strlenopt-1.c b/gcc/testsuite/c-c++-common/torture/strlenopt-1.c
+new file mode 100644
+index 00000000000..e8c11044119
+--- /dev/null
++++ b/gcc/testsuite/c-c++-common/torture/strlenopt-1.c
+@@ -0,0 +1,38 @@
++/* { dg-do run } */
++/* { dg-options "-fno-early-inlining" } */
++
++#define FORTIFY_SOURCE 2
++
++struct S {
++ char skip;
++ char name[0];
++};
++
++static char static_buf[4];
++
++static void
++print_name_len(void *p)
++{
++  struct S *q = (struct S *) p;
++  if (__builtin_strlen(q->name) != 2)
++    __builtin_abort ();
++}
++
++int
++main(void)
++{
++  // treat static storage as struct
++  struct S *c = (struct S *)static_buf;
++  __builtin_strcpy(c->name, "aa");
++
++  // copy static storage to stack storage
++  char stack_buf[4] = { 0 };
++  __builtin_memcpy(stack_buf, static_buf, 4);
++
++  // static and stack both now contain ( 0, 'a', 'a', 0 }
++
++  // indirectly pass the stack storage to the length function
++  char *s = (char *)stack_buf;
++  print_name_len(s);
++  return 0;
++}
+diff --git a/gcc/tree-ssa-strlen.c b/gcc/tree-ssa-strlen.c
+index 55e82e7b638..da47046cc2a 100644
+--- a/gcc/tree-ssa-strlen.c
++++ b/gcc/tree-ssa-strlen.c
+@@ -1200,8 +1200,11 @@ maybe_set_strlen_range (tree lhs, tree src)
+       || array_at_struct_end_p (src))
+     return;
+ 
+-  tree type = TREE_TYPE (src);
+-  if (tree size = TYPE_SIZE_UNIT (type))
++  src = get_base_address (src);
++  if (!DECL_P (src))
++    return;
++
++  if (tree size = DECL_SIZE_UNIT (src))
+     if (size && TREE_CODE (size) == INTEGER_CST)
+       {
+ 	wide_int max = wi::to_wide (size);

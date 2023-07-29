@@ -1,0 +1,9 @@
+version: "3"
+services:
+  centos7base:
+    build:
+      context: .
+      dockerfile: Dockerfile.7-base
+      args:
+        os: $OS7
+    image: "aursu/gccbuild:${OS7TAG}-base"

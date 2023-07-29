@@ -1,0 +1,98 @@
+From b005000525ab0a5116d21217c41fb1da5bd03796 Mon Sep 17 00:00:00 2001
+From: Jonathan Wakely <jwakely@redhat.com>
+Date: Fri, 6 May 2022 21:19:17 +0100
+Subject: [PATCH] libstdc++: Fix deserialization for std::normal_distribution
+ [PR105502]
+
+This fixes a regression in std::normal_distribution deserialization that
+caused the object to be left unchanged if the __state_avail value read
+from the stream was false.
+
+libstdc++-v3/ChangeLog:
+
+	PR libstdc++/105502
+	* include/bits/random.tcc
+	(operator>>(basic_istream<C,T>&, normal_distribution<R>&)):
+	Update state when __state_avail is false.
+	* testsuite/26_numerics/random/normal_distribution/operators/serialize.cc:
+	Check that deserialized object equals serialized one.
+
+(cherry picked from commit 909ef4e2727ddc50a32d6ad379a1f1ccc1043c6a)
+---
+ libstdc++-v3/include/bits/random.tcc          |  2 +-
+ .../operators/serialize.cc                    | 36 ++++++++++++++++++-
+ 2 files changed, 36 insertions(+), 2 deletions(-)
+
+diff --git a/libstdc++-v3/include/bits/random.tcc b/libstdc++-v3/include/bits/random.tcc
+index 0a299baedc5..0f758671f69 100644
+--- a/libstdc++-v3/include/bits/random.tcc
++++ b/libstdc++-v3/include/bits/random.tcc
+@@ -1941,7 +1941,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+       bool __saved_avail;
+       if (__is >> __mean >> __stddev >> __saved_avail)
+ 	{
+-	  if (__saved_avail && (__is >> __x._M_saved))
++	  if (!__saved_avail || (__is >> __x._M_saved))
+ 	    {
+ 	      __x._M_saved_available = __saved_avail;
+ 	      __x.param(typename normal_distribution<_RealType>::
+diff --git a/libstdc++-v3/testsuite/26_numerics/random/normal_distribution/operators/serialize.cc b/libstdc++-v3/testsuite/26_numerics/random/normal_distribution/operators/serialize.cc
+index a65d4004161..8cc70886bc7 100644
+--- a/libstdc++-v3/testsuite/26_numerics/random/normal_distribution/operators/serialize.cc
++++ b/libstdc++-v3/testsuite/26_numerics/random/normal_distribution/operators/serialize.cc
+@@ -25,6 +25,7 @@
+ 
+ #include <random>
+ #include <sstream>
++#include <testsuite_hooks.h>
+ 
+ void
+ test01()
+@@ -37,10 +38,43 @@ test01()
+   str << u;
+ 
+   str >> v;
++  VERIFY( u == v );
++}
++
++void
++test_pr105502()
++{
++  // PR libstdc++/105502 std::normal_distribution deserialization issue
++  std::stringstream str;
++  std::normal_distribution<> d{1, 2}, d2;
++  std::minstd_rand0 g;
++  str << d;
++  VERIFY( str );
++  str >> d2;
++  VERIFY( str );
++  VERIFY( d == d2 );
++
++  (void) d(g); // sets d._M_saved_available = true
++  str.str("");
++  str.clear();
++  str << d;
++  VERIFY( str );
++  str >> d2;
++  VERIFY( str );
++  VERIFY( d == d2 );
++
++  (void) d(g); // sets d._M_saved_available = false
++  str.str("");
++  str.clear();
++  str << d;
++  VERIFY( str );
++  str >> d2;
++  VERIFY( str );
++  VERIFY( d == d2 );
+ }
+ 
+ int main()
+ {
+   test01();
+-  return 0;
++  test_pr105502();
+ }
+-- 
+2.31.1
+

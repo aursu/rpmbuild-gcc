@@ -1,0 +1,61 @@
+commit 79fa567e234585dc6a71f9bd069101c993513f3e
+Author: Jonathan Wakely <jwakely@redhat.com>
+Date:   Thu Apr 22 15:46:51 2021 +0100
+
+    libstdc++: Reject std::make_shared<T[]> [PR 99006]
+    
+    Prior to C++20 it should be ill-formed to use std::make_shared with an
+    array type (and we don't support the C++20 feature to make it valid yet
+    anyway).
+    
+    libstdc++-v3/ChangeLog:
+    
+            PR libstdc++/99006
+            * include/bits/shared_ptr.h (allocate_shared): Assert that _Tp
+            is not an array type.
+            * include/bits/shared_ptr_base.h (__allocate_shared): Likewise.
+            * testsuite/20_util/shared_ptr/creation/99006.cc: New test.
+    
+    (cherry picked from commit 55650236cd97d81f42f9fdb4f6bcb12babafe51f)
+
+diff --git a/libstdc++-v3/include/bits/shared_ptr.h b/libstdc++-v3/include/bits/shared_ptr.h
+index 281600b2901..4ddc52ae723 100644
+--- a/libstdc++-v3/include/bits/shared_ptr.h
++++ b/libstdc++-v3/include/bits/shared_ptr.h
+@@ -698,6 +698,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+     inline shared_ptr<_Tp>
+     allocate_shared(const _Alloc& __a, _Args&&... __args)
+     {
++      static_assert(!is_array<_Tp>::value, "make_shared<T[]> not supported");
++
+       return shared_ptr<_Tp>(_Sp_alloc_shared_tag<_Alloc>{__a},
+ 			     std::forward<_Args>(__args)...);
+     }
+diff --git a/libstdc++-v3/include/bits/shared_ptr_base.h b/libstdc++-v3/include/bits/shared_ptr_base.h
+index 0367c2d51a5..8af6e9fb11c 100644
+--- a/libstdc++-v3/include/bits/shared_ptr_base.h
++++ b/libstdc++-v3/include/bits/shared_ptr_base.h
+@@ -1822,6 +1822,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+     inline __shared_ptr<_Tp, _Lp>
+     __allocate_shared(const _Alloc& __a, _Args&&... __args)
+     {
++      static_assert(!is_array<_Tp>::value, "make_shared<T[]> not supported");
++
+       return __shared_ptr<_Tp, _Lp>(_Sp_alloc_shared_tag<_Alloc>{__a},
+ 				    std::forward<_Args>(__args)...);
+     }
+diff --git a/libstdc++-v3/testsuite/20_util/shared_ptr/creation/99006.cc b/libstdc++-v3/testsuite/20_util/shared_ptr/creation/99006.cc
+new file mode 100644
+index 00000000000..d5f7a5da5e9
+--- /dev/null
++++ b/libstdc++-v3/testsuite/20_util/shared_ptr/creation/99006.cc
+@@ -0,0 +1,9 @@
++// FIXME: This should use { target { ! c++20 } }
++// { dg-do compile }
++
++#include <memory>
++
++auto p = std::make_shared<int[]>(2); // { dg-error "here" }
++auto q = std::make_shared<int[2]>(1, 2); // { dg-error "here" }
++
++// { dg-prune-output "static assertion failed" }

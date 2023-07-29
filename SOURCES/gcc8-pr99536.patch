@@ -1,0 +1,47 @@
+commit 29dad307b5d7cfdb6626c11c8e43ebff941c950b
+Author: Jonathan Wakely <jwakely@redhat.com>
+Date:   Thu Mar 11 16:43:51 2021 +0000
+
+    libstdc++: Initialize std::normal_distribution::_M_saved [PR 99536]
+    
+    This avoids a false positive -Wmaybe-uninitialized warning, by
+    initializing _M_saved on construction.
+    
+    libstdc++-v3/ChangeLog:
+    
+            PR libstdc++/99536
+            * include/bits/random.h (normal_distribution): Use
+            default-initializer for _M_saved and _M_saved_available.
+    
+    (cherry picked from commit 67e397660611990efd98f9e4106c1ee81f6803a4)
+
+diff --git a/libstdc++-v3/include/bits/random.h b/libstdc++-v3/include/bits/random.h
+index b36781ed290..3385345d273 100644
+--- a/libstdc++-v3/include/bits/random.h
++++ b/libstdc++-v3/include/bits/random.h
+@@ -1974,12 +1974,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+       explicit
+       normal_distribution(result_type __mean = result_type(0),
+ 			  result_type __stddev = result_type(1))
+-      : _M_param(__mean, __stddev), _M_saved_available(false)
++      : _M_param(__mean, __stddev)
+       { }
+ 
+       explicit
+       normal_distribution(const param_type& __p)
+-      : _M_param(__p), _M_saved_available(false)
++      : _M_param(__p)
+       { }
+ 
+       /**
+@@ -2158,8 +2158,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 			const param_type& __p);
+ 
+       param_type  _M_param;
+-      result_type _M_saved;
+-      bool        _M_saved_available;
++      result_type _M_saved = 0;
++      bool        _M_saved_available = false;
+     };
+ 
+   /**

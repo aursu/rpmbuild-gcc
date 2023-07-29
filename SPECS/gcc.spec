@@ -4,7 +4,7 @@
 %global gcc_major 8
 # Note, gcc_release must be integer, if you want to add suffixes to
 # %%{release}, append them after %%{gcc_release} on Release: line.
-%global gcc_release 3
+%global gcc_release 19
 %global nvptx_tools_gitrev c28050f60193b3b95a18866a96f03334e874e78f
 %global nvptx_newlib_gitrev aadc8eb0ec43b7cd0dd2dfb484bae63c8b05ef24
 %global _unpackaged_files_terminate_build 0
@@ -16,7 +16,7 @@
 %undefine _annotated_build
 %endif
 %global multilib_64_archs sparc64 ppc64 ppc64p7 x86_64
-%if 0%{?rhel} >= 7
+%if 0%{?rhel} > 7
 %global build_ada 0
 %global build_objc 0
 %global build_go 0
@@ -70,7 +70,7 @@
 %else
 %global build_libitm 0
 %endif
-%if 0%{?rhel} >= 7
+%if 0%{?rhel} > 7
 %global build_libmpx 0
 %else
 %ifarch %{ix86} x86_64
@@ -207,7 +207,7 @@ Requires: libisl.so.15
 %endif
 %if %{build_libstdcxx_docs}
 BuildRequires: doxygen >= 1.7.1
-BuildRequires: graphviz, dblatex, texlive-collection-latex, docbook5-style-xsl
+BuildRequires: graphviz, dblatex, texlive-collection-latex, docbook-style-xsl
 %endif
 Requires: cpp = %{version}-%{release}
 # Need .eh_frame ld optimizations
@@ -287,10 +287,28 @@ Patch18: gcc8-remove-old-demangle.patch
 Patch19: gcc8-rh1960701.patch
 Patch20: gcc8-pr100797.patch
 Patch21: gcc8-rh1981822.patch
-
+Patch22: gcc8-Wbidi-chars.patch
+Patch23: gcc8-pr96796.patch
+Patch24: gcc8-pch-tweaks.patch
+Patch25: gcc8-aarch64-mtune-neoverse-512tvb.patch
+Patch26: gcc8-rh2028609.patch
+Patch27: gcc8-libgfortran-default-values.patch
+Patch28: gcc8-rh2001788.patch
+Patch29: gcc8-rh2117838.patch
 Patch30: gcc8-rh1668903-1.patch
 Patch31: gcc8-rh1668903-2.patch
 Patch32: gcc8-rh1668903-3.patch
+Patch33: gcc8-harden-1.patch
+Patch34: gcc8-harden-2.patch
+Patch35: gcc8-harden-3.patch
+Patch36: gcc8-harden-4.patch
+Patch37: gcc8-pr105502.patch
+Patch38: gcc8-pr99536.patch
+Patch39: gcc8-libstdc++-make_shared.patch
+Patch40: gcc8-rh2137448.patch
+Patch41: gcc8-s390x-regarg-1.patch
+Patch42: gcc8-s390x-regarg-2.patch
+Patch43: gcc8-s390x-regarg-3.patch
 
 Patch1000: nvptx-tools-no-ptxas.patch
 Patch1001: nvptx-tools-build.patch
@@ -836,6 +854,25 @@ NVidia PTX.  OpenMP and OpenACC programs linked with -fopenmp will
 by default add PTX code into the binaries, which can be offloaded
 to NVidia PTX capable devices if available.
 
+%package plugin-annobin
+Summary: The annobin plugin for gcc, built by the installed version of gcc
+Requires: gcc = %{version}-%{release}
+# Starting with release 10.01 annobin fixed a bug in its configure scripts
+# which prevented them from working with a built but not installed compiler
+BuildRequires: annobin >= 10.01
+# Starting with release  9.93 annobin-plugin-gcc puts a copy of the sources
+# in /usr/src/annobin
+# FIXME: Currently the annobin-plugin-gcc subpackage only exists in Fedora.
+# For RHEL-9 the annobin package does everything.
+# BuildRequires: annobin-plugin-gcc
+# Needed in order to be able to decompress the annobin source tarball.
+BuildRequires: xz
+
+%description plugin-annobin
+This package adds a version of the annobin plugin for gcc.  This version
+of the plugin is explicitly built by the same version of gcc that is installed
+so that there cannot be any synchronization problems.
+
 %prep
 %setup -q -n gcc-%{version}-%{DATE} -a 1 -a 2
 %patch0 -p0 -b .hack~
@@ -867,10 +904,29 @@ to NVidia PTX capable devices if available.
 %patch19 -p0 -b .rh1960701~
 %patch20 -p0 -b .pr100797~
 %patch21 -p0 -b .rh1981822~
+%patch22 -p1 -b .bidi~
+%patch23 -p1 -b .pr96796~
+%patch24 -p1 -b .pch-tweaks~
+%patch25 -p1 -b .neoverse~
+%patch26 -p1 -b .rh2028609~
+%patch27 -p1 -b .libgfortran-default~
+%patch28 -p1 -b .rh2001788~
+%patch29 -p1 -b .rh2117838~
 
 %patch30 -p0 -b .rh1668903-1~
 %patch31 -p0 -b .rh1668903-2~
 %patch32 -p0 -b .rh1668903-3~
+%patch33 -p1 -b .harden-1~
+%patch34 -p1 -b .harden-2~
+%patch35 -p1 -b .harden-3~
+%patch36 -p1 -b .harden-4~
+%patch37 -p1 -b .pr105502~
+%patch38 -p1 -b .pr99536~
+%patch39 -p1 -b .make_shared~
+%patch40 -p1 -b .rh2137448~
+%patch41 -p1 -b .s390x-regarg-1~
+%patch42 -p1 -b .s390x-regarg-2~
+%patch43 -p1 -b .s390x-regarg-3~
 
 cd nvptx-tools-%{nvptx_tools_gitrev}
 %patch1000 -p1 -b .nvptx-tools-no-ptxas~
@@ -1210,6 +1266,82 @@ done)
 rm -f rpm.doc/changelogs/gcc/ChangeLog.[1-9]
 find rpm.doc -name \*ChangeLog\* | xargs bzip2 -9
 
+# Get the annobin sources.  Note these are not added to the rpm as SOURCE4
+# because if they were the build phase would try to include them as part of
+# gcc itself, and this causes problems.  Instead we locate the sources in
+# the buildroot.  They should have been put there when annobin was installed.
+
+pushd %{_builddir}
+
+%global annobin_source_dir %{_usrsrc}/annobin
+
+if [ -d %{annobin_source_dir} ]
+then
+    # Unpack the sources.
+    echo "Unpacking annobin sources"
+    rm -fr annobin-* 
+    tar xvf %{annobin_source_dir}/latest-annobin.tar.xz
+
+    # Setting this as a local symbol because using %%global does not appear to work.
+    annobin_dir=$(find . -maxdepth 1 -type d -name "annobin*")
+
+    # Now build the annobin plugin using the just built compiler.
+    echo "annobin directory = ${annobin_dir}"
+    cd ${annobin_dir} 
+
+    # Change the plugin so that it generates "nop" instead of ".nop" instructions.
+    sed -e "s/\.nop/nop/" -i gcc-plugin/annobin.cc
+
+    # Work out where this version of gcc stores its plugins.
+%global ANNOBIN_GCC_PLUGIN_DIR  %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/plugin
+
+    CONFIG_ARGS="--quiet"
+    CONFIG_ARGS="$CONFIG_ARGS --with-gcc-plugin-dir=%{ANNOBIN_GCC_PLUGIN_DIR}"
+    CONFIG_ARGS="$CONFIG_ARGS --without-annocheck"
+    CONFIG_ARGS="$CONFIG_ARGS --without-tests"
+    CONFIG_ARGS="$CONFIG_ARGS --disable-rpath"
+
+    comp_dir="%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/gcc/"
+    ccompiler="%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/gcc/xgcc -B $comp_dir"
+    cxxcompiler="%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/gcc/xg++ -B $comp_dir"
+
+    comp_flags="%build_cflags"
+    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/gcc"
+    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/gcc/"
+    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/include"
+    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/include/%{gcc_target_platform}"
+    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/libstdc++-v3/libsupc++"
+    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/include"
+    comp_flags="$comp_flags -I %{_builddir}/gcc-%{version}-%{DATE}/libcpp/include"
+
+    ld_flags="%build_ldflags"
+    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/libstdc++-v3/.libs"
+    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/.libs"
+    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/src/.libs"
+    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/libstdc++-v3/libsupc++/.libs"
+    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libstdc++-v3/libsupc++/.libs"
+    ld_flags="$ld_flags -L%{_builddir}/gcc-%{version}-%{DATE}/obj-%{gcc_target_platform}/%{gcc_target_platform}/libgcc/.libs"
+
+    # libtool works with CFLAGS but ignores LDFLAGS, so we have to combine them.
+    comp_flags="$comp_flags $ld_flags"
+
+    echo "Configuring the annobin plugin"
+    CC="${ccompiler}" CFLAGS="${comp_flags}" \
+      CXX="${cxxcompiler}" CXXFLAGS="${comp_flags}" \
+      LDFLAGS="${ld_flags}" \
+      ./configure ${CONFIG_ARGS}  || cat config.log
+
+    echo "Building the annobin plugin"
+    make
+
+    echo "Annobin plugin build complete"
+else
+    echo "Unable to locate annobin sources (expected to find: %{annobin_source_dir}/latest-annobin.tar.xz)"
+    echo "These should be provided by installing the annobin package"
+    exit 1
+fi
+popd
+
 %install
 rm -rf %{buildroot}
 
@@ -1367,7 +1499,7 @@ mkdir -p %{buildroot}/%{_lib}
 mv -f %{buildroot}%{_prefix}/%{_lib}/libgcc_s.so.1 %{buildroot}/%{_lib}/libgcc_s-%{gcc_major}-%{DATE}.so.1
 chmod 755 %{buildroot}/%{_lib}/libgcc_s-%{gcc_major}-%{DATE}.so.1
 ln -sf libgcc_s-%{gcc_major}-%{DATE}.so.1 %{buildroot}/%{_lib}/libgcc_s.so.1
-%ifarch %{ix86} x86_64 ppc ppc64 ppc64p7 ppc64le %{arm}
+%ifarch %{ix86} x86_64 ppc ppc64 ppc64p7 ppc64le %{arm} aarch64
 rm -f $FULLPATH/libgcc_s.so
 echo '/* GNU ld script
    Use the shared library, but some functions are only in
@@ -1988,6 +2120,20 @@ rm -f %{buildroot}%{mandir}/man3/ffi*
 
 # Help plugins find out nvra.
 echo gcc-%{version}-%{release}.%{_arch} > $FULLPATH/rpmver
+
+# Rename the annobin plugin to gcc-annobin.
+mkdir -p %{buildroot}%{ANNOBIN_GCC_PLUGIN_DIR}
+pushd    %{buildroot}%{ANNOBIN_GCC_PLUGIN_DIR}
+
+annobin_dir=$(find %{_builddir} -maxdepth 1 -type d -name "annobin*")
+echo "annobin directory = ${annobin_dir}"
+
+cp ${annobin_dir}/gcc-plugin/.libs/annobin.so.0.0.0 gcc-annobin.so.0.0.0
+
+rm -f gcc-annobin.so.0 gcc-annobin.so
+ln -s gcc-annobin.so.0.0.0 gcc-annobin.so.0
+ln -s gcc-annobin.so.0.0.0 gcc-annobin.so
+popd
 
 %check
 %if %{with tests}
@@ -3186,7 +3332,64 @@ fi
 %{_prefix}/%{_lib}/libgomp-plugin-nvptx.so.*
 %endif
 
+%files plugin-annobin
+%{ANNOBIN_GCC_PLUGIN_DIR}/gcc-annobin.so
+%{ANNOBIN_GCC_PLUGIN_DIR}/gcc-annobin.so.0
+%{ANNOBIN_GCC_PLUGIN_DIR}/gcc-annobin.so.0.0.0
+
 %changelog
+* Tue Apr  4 2023 Marek Polacek <polacek@redhat.com> 8.5.0-19
+- s390x: add support for register arguments preserving (#2168205)
+
+* Tue Dec  6 2022 Marek Polacek <polacek@redhat.com> 8.5.0-18
+- fix strlen range with a flexible member array (#2137448)
+
+* Mon Oct  3 2022 Marek Polacek <polacek@redhat.com> 8.5.0-17
+- fix deserialization for std::normal_distribution (#2130392,
+  PR libstdc++/105502)
+- initialize std::normal_distribution::_M_saved (PR libstdc++/99536)
+- reject std::make_shared<T[]> (PR libstdc++/99006)
+
+* Thu Sep 29 2022 Marek Polacek <polacek@redhat.com> 8.5.0-16
+- avoid changing PHIs in GIMPLE split_edge (#2117838)
+
+* Wed Jul 20 2022 Marek Polacek <polacek@redhat.com> 8.5.0-15
+- backport straight-line-speculation mitigation (#2108721)
+
+* Fri Jul  8 2022 Jonathan Wakely <jwakely@redhat.com> 8.5.0-14
+- backport std::regex check for invalid range (#2001788)
+
+* Wed Apr 20 2022 Marek Polacek <polacek@redhat.com> 8.5.0-13
+- require docbook-style-xsl instead of docbook5-style-xsl (#2073888)
+- backport Default widths with -fdec-format-defaults patch (#2074614)
+
+* Fri Apr 01 2022 Marek Polacek <polacek@redhat.com> 8.5.0-12
+- Fix nop generation in annobin plugin.  (#2067150)
+
+* Wed Mar 30 2022 Marek Polacek <polacek@redhat.com> 8.5.0-11
+- Add a plugin-annobin subpackage.  (#2067150)
+
+* Thu Jan 27 2022 Marek Polacek <polacek@redhat.com> 8.5.0-10
+- fix typo in the cprop_hardreg patch (#2028609)
+
+* Mon Jan 24 2022 Marek Polacek <polacek@redhat.com> 8.5.0-9
+- apply cprop_hardreg fix for narrow mode != lowpart targets (#2028609)
+
+* Mon Jan 24 2022 Marek Polacek <polacek@redhat.com> 8.5.0-8
+- aarch64: Add -mtune=neoverse-512tvb (#1845932)
+
+* Fri Dec 10 2021 Marek Polacek <polacek@redhat.com> 8.5.0-7
+- backport PCH tweaks (#2030878)
+
+* Fri Dec  3 2021 Marek Polacek <polacek@redhat.com> 8.5.0-6
+- avoid cycling on certain subreg reloads (PR rtl-optimization/96796, #2028798)
+
+* Tue Nov 30 2021 Marek Polacek <polacek@redhat.com> 8.5.0-5
+- when linking against libgcc_s, link libgcc.a too (#2022588)
+
+* Thu Nov 18 2021 Marek Polacek <polacek@redhat.com> 8.5.0-4
+- add -Wbidi-chars patch (#2008392)
+
 * Tue Jul 13 2021 Marek Polacek <polacek@redhat.com> 8.5.0-3
 - fix mangling of lambdas in default args (PR c++/91241, #1981822)
 - add a few Provides: bundled

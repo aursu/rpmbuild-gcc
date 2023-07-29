@@ -1,0 +1,105 @@
+From 9c108bb84d3a2447dac730c455df658be0a2c751 Mon Sep 17 00:00:00 2001
+From: Richard Sandiford <richard.sandiford@arm.com>
+Date: Tue, 17 Aug 2021 15:15:27 +0100
+Subject: [PATCH] aarch64: Add -mtune=neoverse-512tvb
+To: gcc-patches@gcc.gnu.org
+
+This patch adds an option to tune for Neoverse cores that have
+a total vector bandwidth of 512 bits (4x128 for Advanced SIMD
+and a vector-length-dependent equivalent for SVE).  This is intended
+to be a compromise between tuning aggressively for a single core like
+Neoverse V1 (which can be too narrow) and tuning for AArch64 cores
+in general (which can be too wide).
+
+-mcpu=neoverse-512tvb is equivalent to -mcpu=neoverse-v1
+-mtune=neoverse-512tvb.
+
+gcc/
+	* doc/invoke.texi: Document -mtune=neoverse-512tvb and
+	-mcpu=neoverse-512tvb.
+	* config/aarch64/aarch64-cores.def (neoverse-512tvb): New entry.
+	* config/aarch64/aarch64-tune.md: Regenerate.
+
+(cherry picked from commit 048039c49b96875144f67e7789fdea54abf7710b)
+---
+ gcc/config/aarch64/aarch64-cores.def |  1 +
+ gcc/config/aarch64/aarch64-tune.md   |  2 +-
+ gcc/doc/invoke.texi                  | 25 ++++++++++++++++++++++---
+ 3 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/gcc/config/aarch64/aarch64-cores.def b/gcc/config/aarch64/aarch64-cores.def
+index dfb839c01cc..f348d31e22e 100644
+--- a/gcc/config/aarch64/aarch64-cores.def
++++ b/gcc/config/aarch64/aarch64-cores.def
+@@ -99,6 +99,7 @@ AARCH64_CORE("saphira",     saphira,    falkor,    8_3A,  AARCH64_FL_FOR_ARCH8_3
+ /* ARM ('A') cores. */
+ AARCH64_CORE("zeus", zeus, cortexa57, 8_4A,  AARCH64_FL_FOR_ARCH8_4 | AARCH64_FL_F16 | AARCH64_FL_RCPC | AARCH64_FL_SVE | AARCH64_FL_RNG, neoversev1, 0x41, 0xd40, -1)
+ AARCH64_CORE("neoverse-v1", neoversev1, cortexa57, 8_4A,  AARCH64_FL_FOR_ARCH8_4 | AARCH64_FL_F16 | AARCH64_FL_RCPC | AARCH64_FL_SVE | AARCH64_FL_RNG, neoversev1, 0x41, 0xd40, -1)
++AARCH64_CORE("neoverse-512tvb", neoverse512tvb, cortexa57, 8_4A,  AARCH64_FL_FOR_ARCH8_4 | AARCH64_FL_F16 | AARCH64_FL_RCPC | AARCH64_FL_SVE | AARCH64_FL_RNG, neoversev1, INVALID_IMP, INVALID_CORE, -1)
+ 
+ /* Armv8.5-A Architecture Processors.  */
+ AARCH64_CORE("neoverse-n2", neoversen2, cortexa57, 8_4A,  AARCH64_FL_FOR_ARCH8_4 | AARCH64_FL_F16 | AARCH64_FL_SVE | AARCH64_FL_RNG, neoversen2, 0x41, 0xd49, -1)
+diff --git a/gcc/config/aarch64/aarch64-tune.md b/gcc/config/aarch64/aarch64-tune.md
+index 2d7c9aa4740..09b76480f0b 100644
+--- a/gcc/config/aarch64/aarch64-tune.md
++++ b/gcc/config/aarch64/aarch64-tune.md
+@@ -1,5 +1,5 @@
+ ;; -*- buffer-read-only: t -*-
+ ;; Generated automatically by gentune.sh from aarch64-cores.def
+ (define_attr "tune"
+-	"cortexa35,cortexa53,cortexa57,cortexa72,cortexa73,thunderx,thunderxt88p1,thunderxt88,thunderxt81,thunderxt83,xgene1,falkor,qdf24xx,exynosm1,thunderx2t99p1,vulcan,thunderx2t99,cortexa55,cortexa75,cortexa76,ares,neoversen1,saphira,zeus,neoversev1,neoversen2,cortexa57cortexa53,cortexa72cortexa53,cortexa73cortexa35,cortexa73cortexa53,cortexa75cortexa55"
++	"cortexa35,cortexa53,cortexa57,cortexa72,cortexa73,thunderx,thunderxt88p1,thunderxt88,thunderxt81,thunderxt83,xgene1,falkor,qdf24xx,exynosm1,thunderx2t99p1,vulcan,thunderx2t99,cortexa55,cortexa75,cortexa76,ares,neoversen1,saphira,zeus,neoversev1,neoverse512tvb,neoversen2,cortexa57cortexa53,cortexa72cortexa53,cortexa73cortexa35,cortexa73cortexa53,cortexa75cortexa55"
+ 	(const (symbol_ref "((enum attr_tune) aarch64_tune)")))
+diff --git a/gcc/doc/invoke.texi b/gcc/doc/invoke.texi
+index 78ca7738df2..68fda03281a 100644
+--- a/gcc/doc/invoke.texi
++++ b/gcc/doc/invoke.texi
+@@ -14772,9 +14772,9 @@ performance of the code.  Permissible values for this option are:
+ @samp{generic}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a55},
+ @samp{cortex-a57}, @samp{cortex-a72}, @samp{cortex-a73}, @samp{cortex-a75},
+ @samp{cortex-a76}, @samp{ares}, @samp{neoverse-n1}, @samp{neoverse-n2},
+-@samp{neoverse-v1}, @samp{zeus}, @samp{exynos-m1}, @samp{falkor},
+-@samp{qdf24xx}, @samp{saphira}, @samp{xgene1}, @samp{vulcan}, @samp{thunderx},
+-@samp{thunderxt88}, @samp{thunderxt88p1}, @samp{thunderxt81},
++@samp{neoverse-v1}, @samp{zeus}, @samp{neoverse-512tvb}, @samp{exynos-m1},
++@samp{falkor}, @samp{qdf24xx}, @samp{saphira}, @samp{xgene1}, @samp{vulcan},
++@samp{thunderx}, @samp{thunderxt88}, @samp{thunderxt88p1}, @samp{thunderxt81},
+ @samp{thunderxt83}, @samp{thunderx2t99}, @samp{cortex-a57.cortex-a53},
+ @samp{cortex-a72.cortex-a53}, @samp{cortex-a73.cortex-a35},
+ @samp{cortex-a73.cortex-a53}, @samp{cortex-a75.cortex-a55},
+@@ -14785,6 +14785,15 @@ The values @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
+ @samp{cortex-a75.cortex-a55} specify that GCC should tune for a
+ big.LITTLE system.
+ 
++The value @samp{neoverse-512tvb} specifies that GCC should tune
++for Neoverse cores that (a) implement SVE and (b) have a total vector
++bandwidth of 512 bits per cycle.  In other words, the option tells GCC to
++tune for Neoverse cores that can execute 4 128-bit Advanced SIMD arithmetic
++instructions a cycle and that can execute an equivalent number of SVE
++arithmetic instructions per cycle (2 for 256-bit SVE, 4 for 128-bit SVE).
++This is more general than tuning for a specific core like Neoverse V1
++but is more specific than the default tuning described below.
++
+ Additionally on native AArch64 GNU/Linux systems the value
+ @samp{native} tunes performance to the host system.  This option has no effect
+ if the compiler is unable to recognize the processor of the host system.
+@@ -14814,6 +14823,16 @@ by @option{-mtune}).  Where this option is used in conjunction
+ with @option{-march} or @option{-mtune}, those options take precedence
+ over the appropriate part of this option.
+ 
++@option{-mcpu=neoverse-512tvb} is special in that it does not refer
++to a specific core, but instead refers to all Neoverse cores that
++(a) implement SVE and (b) have a total vector bandwidth of 512 bits
++a cycle.  Unless overridden by @option{-march},
++@option{-mcpu=neoverse-512tvb} generates code that can run on a
++Neoverse V1 core, since Neoverse V1 is the first Neoverse core with
++these properties.  Unless overridden by @option{-mtune},
++@option{-mcpu=neoverse-512tvb} tunes code in the same way as for
++@option{-mtune=neoverse-512tvb}.
++
+ @item -moverride=@var{string}
+ @opindex moverride
+ Override tuning decisions made by the back-end in response to a
+-- 
+2.25.1
+

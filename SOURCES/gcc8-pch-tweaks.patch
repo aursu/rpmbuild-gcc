@@ -1,0 +1,844 @@
+commit fe7c3ecff1f9c0520090a77fa824d8c5d9dbec12
+Author: Jakub Jelinek <jakub@redhat.com>
+Date:   Fri Dec 3 11:03:30 2021 +0100
+
+    pch: Add support for PCH for relocatable executables [PR71934]
+    
+    So, if we want to make PCH work for PIEs, I'd say we can:
+    1) add a new GTY option, say callback, which would act like
+       skip for non-PCH and for PCH would make us skip it but
+       remember for address bias translation
+    2) drop the skip for tree_translation_unit_decl::language
+    3) change get_unnamed_section to have const char * as
+       last argument instead of const void *, change
+       unnamed_section::data also to const char * and update
+       everything related to that
+    4) maybe add a host hook whether it is ok to support binaries
+       changing addresses (the only thing I'm worried is if
+       some host that uses function descriptors allocates them
+       dynamically instead of having them somewhere in the
+       executable)
+    5) maybe add a gengtype warning if it sees in GTY tracked
+       structure a function pointer without that new callback
+       option
+    
+    Here is 1), 2), 3) implemented.
+    
+    Note, on stdc++.h.gch/O2g.gch there are just those 10 relocations without
+    the second patch, with it a few more, but nothing huge.  And for non-PIEs
+    there isn't really any extra work on the load side except freading two scalar
+    values and fseek.
+    
+    2021-12-03  Jakub Jelinek  <jakub@redhat.com>
+    
+            PR pch/71934
+    gcc/
+            * ggc.h (gt_pch_note_callback): Declare.
+            * gengtype.h (enum typekind): Add TYPE_CALLBACK.
+            (callback_type): Declare.
+            * gengtype.c (dbgprint_count_type_at): Handle TYPE_CALLBACK.
+            (callback_type): New variable.
+            (process_gc_options): Add CALLBACK argument, handle callback
+            option.
+            (set_gc_used_type): Adjust process_gc_options caller, if callback,
+            set type to &callback_type.
+            (output_mangled_typename): Handle TYPE_CALLBACK.
+            (walk_type): Likewise.  Handle callback option.
+            (write_types_process_field): Handle TYPE_CALLBACK.
+            (write_types_local_user_process_field): Likewise.
+            (write_types_local_process_field): Likewise.
+            (write_root): Likewise.
+            (dump_typekind): Likewise.
+            (dump_type): Likewise.
+            * gengtype-state.c (type_lineloc): Handle TYPE_CALLBACK.
+            (state_writer::write_state_callback_type): New method.
+            (state_writer::write_state_type): Handle TYPE_CALLBACK.
+            (read_state_callback_type): New function.
+            (read_state_type): Handle TYPE_CALLBACK.
+            * ggc-common.c (callback_vec): New variable.
+            (gt_pch_note_callback): New function.
+            (gt_pch_save): Stream out gt_pch_save function address and relocation
+            table.
+            (gt_pch_restore): Stream in saved gt_pch_save function address and
+            relocation table and apply relocations if needed.
+            * doc/gty.texi (callback): Document new GTY option.
+            * varasm.c (get_unnamed_section): Change callback argument's type and
+            last argument's type from const void * to const char *.
+            (output_section_asm_op): Change argument's type from const void *
+            to const char *, remove unnecessary cast.
+            * tree-core.h (struct tree_translation_unit_decl): Drop GTY((skip))
+            from language member.
+            * output.h (unnamed_section_callback): Change argument type from
+            const void * to const char *.
+            (struct unnamed_section): Use GTY((callback)) instead of GTY((skip))
+            for callback member.  Change data member type from const void *
+            to const char *.
+            (struct noswitch_section): Use GTY((callback)) instead of GTY((skip))
+            for callback member.
+            (get_unnamed_section): Change callback argument's type and
+            last argument's type from const void * to const char *.
+            (output_section_asm_op): Change argument's type from const void *
+            to const char *.
+            * config/avr/avr.c (avr_output_progmem_section_asm_op): Likewise.
+            Remove unneeded cast.
+            * config/darwin.c (output_objc_section_asm_op): Change argument's type
+            from const void * to const char *.
+            * config/pa/pa.c (som_output_text_section_asm_op): Likewise.
+            (som_output_comdat_data_section_asm_op): Likewise.
+            * config/rs6000/rs6000.c (rs6000_elf_output_toc_section_asm_op):
+            Likewise.
+            (rs6000_xcoff_output_readonly_section_asm_op): Likewise.  Instead
+            of dereferencing directive hardcode variable names and decide based on
+            whether directive is NULL or not.
+            (rs6000_xcoff_output_readwrite_section_asm_op): Change argument's type
+            from const void * to const char *.
+            (rs6000_xcoff_output_tls_section_asm_op): Likewise.  Instead
+            of dereferencing directive hardcode variable names and decide based on
+            whether directive is NULL or not.
+            (rs6000_xcoff_output_toc_section_asm_op): Change argument's type
+            from const void * to const char *.
+            (rs6000_xcoff_asm_init_sections): Adjust get_unnamed_section callers.
+    gcc/c-family/
+            * c-pch.c (struct c_pch_validity): Remove pch_init member.
+            (pch_init): Don't initialize v.pch_init.
+            (c_common_valid_pch): Don't warn and punt if .text addresses change.
+    libcpp/
+            * include/line-map.h (class line_maps): Add GTY((callback)) to
+            reallocator and round_alloc_size members.
+
+commit 4dc6d19222581c77a174d44d97507d234fb7e39b
+Author: Jakub Jelinek <jakub@redhat.com>
+Date:   Mon Dec 6 11:18:58 2021 +0100
+
+    avr: Fix AVR build [PR71934]
+    
+    On Mon, Dec 06, 2021 at 11:00:30AM +0100, Martin Liška wrote:
+    > Jakub, I think the patch broke avr-linux target:
+    >
+    > g++  -fno-PIE -c   -g   -DIN_GCC  -DCROSS_DIRECTORY_STRUCTURE   -fno-exceptions -fno-rtti -fasynchronous-unwind-tables -W -Wall -Wno-narrowing -Wwrite-strings -Wcast-qual -Wno-erro
+    > /home/marxin/Programming/gcc/gcc/config/avr/avr.c: In function ‘void avr_output_data_section_asm_op(const void*)’:
+    > /home/marxin/Programming/gcc/gcc/config/avr/avr.c:10097:26: error: invalid conversion from ‘const void*’ to ‘const char*’ [-fpermissive]
+    
+    This patch fixes that.
+    
+    2021-12-06  Jakub Jelinek  <jakub@redhat.com>
+    
+            PR pch/71934
+            * config/avr/avr.c (avr_output_data_section_asm_op,
+            avr_output_bss_section_asm_op): Change argument type from const void *
+            to const char *.
+
+diff --git a/gcc/c-family/c-pch.c b/gcc/c-family/c-pch.c
+index 5da60423354..2cafa1387bb 100644
+--- a/gcc/c-family/c-pch.c
++++ b/gcc/c-family/c-pch.c
+@@ -58,7 +58,6 @@ struct c_pch_validity
+ {
+   unsigned char debug_info_type;
+   signed char match[MATCH_SIZE];
+-  void (*pch_init) (void);
+   size_t target_data_length;
+ };
+ 
+@@ -123,7 +122,6 @@ pch_init (void)
+ 	gcc_assert (v.match[i] == *pch_matching[i].flag_var);
+       }
+   }
+-  v.pch_init = &pch_init;
+   target_validity = targetm.get_pch_validity (&v.target_data_length);
+ 
+   if (fwrite (partial_pch, IDENT_LENGTH, 1, f) != 1
+@@ -287,20 +285,6 @@ c_common_valid_pch (cpp_reader *pfile, c
+ 	}
+   }
+ 
+-  /* If the text segment was not loaded at the same address as it was
+-     when the PCH file was created, function pointers loaded from the
+-     PCH will not be valid.  We could in theory remap all the function
+-     pointers, but no support for that exists at present.
+-     Since we have the same executable, it should only be necessary to
+-     check one function.  */
+-  if (v.pch_init != &pch_init)
+-    {
+-      if (cpp_get_options (pfile)->warn_invalid_pch)
+-	cpp_error (pfile, CPP_DL_WARNING,
+-		   "%s: had text segment at different address", name);
+-      return 2;
+-    }
+-
+   /* Check the target-specific validity data.  */
+   {
+     void *this_file_data = xmalloc (v.target_data_length);
+diff --git a/gcc/config/avr/avr.c b/gcc/config/avr/avr.c
+index 200701a583c..6ba038881d6 100644
+--- a/gcc/config/avr/avr.c
++++ b/gcc/config/avr/avr.c
+@@ -10114,10 +10114,9 @@ avr_output_bss_section_asm_op (const void *data)
+ /* Unnamed section callback for progmem*.data sections.  */
+ 
+ static void
+-avr_output_progmem_section_asm_op (const void *data)
++avr_output_progmem_section_asm_op (const char *data)
+ {
+-  fprintf (asm_out_file, "\t.section\t%s,\"a\",@progbits\n",
+-           (const char*) data);
++  fprintf (asm_out_file, "\t.section\t%s,\"a\",@progbits\n", data);
+ }
+ 
+ 
+diff --git a/gcc/config/darwin.c b/gcc/config/darwin.c
+index c5ba7927ce1..8ad5b26c980 100644
+--- a/gcc/config/darwin.c
++++ b/gcc/config/darwin.c
+@@ -134,7 +134,7 @@ int emit_aligned_common = false;
+    DIRECTIVE is as for output_section_asm_op.  */
+ 
+ static void
+-output_objc_section_asm_op (const void *directive)
++output_objc_section_asm_op (const char *directive)
+ {
+   static bool been_here = false;
+ 
+diff --git a/gcc/config/pa/pa.c b/gcc/config/pa/pa.c
+index f22d25a4066..2b10ef34061 100644
+--- a/gcc/config/pa/pa.c
++++ b/gcc/config/pa/pa.c
+@@ -10009,7 +10009,7 @@ pa_arg_partial_bytes (cumulative_args_t cum_v, const function_arg_info &arg)
+    to the default text subspace.  */
+ 
+ static void
+-som_output_text_section_asm_op (const void *data ATTRIBUTE_UNUSED)
++som_output_text_section_asm_op (const char *data ATTRIBUTE_UNUSED)
+ {
+   gcc_assert (TARGET_SOM);
+   if (TARGET_GAS)
+@@ -10053,7 +10053,7 @@ som_output_text_section_asm_op (const void *data ATTRIBUTE_UNUSED)
+    sections.  This function is only used with SOM.  */
+ 
+ static void
+-som_output_comdat_data_section_asm_op (const void *data)
++som_output_comdat_data_section_asm_op (const char *data)
+ {
+   in_section = NULL;
+   output_section_asm_op (data);
+diff --git a/gcc/config/rs6000/rs6000.c b/gcc/config/rs6000/rs6000.c
+index 945157b1c1a..34089743759 100644
+--- a/gcc/config/rs6000/rs6000.c
++++ b/gcc/config/rs6000/rs6000.c
+@@ -20599,7 +20599,7 @@ rs6000_ms_bitfield_layout_p (const_tree record_type)
+ /* A get_unnamed_section callback, used for switching to toc_section.  */
+ 
+ static void
+-rs6000_elf_output_toc_section_asm_op (const void *data ATTRIBUTE_UNUSED)
++rs6000_elf_output_toc_section_asm_op (const char *data ATTRIBUTE_UNUSED)
+ {
+   if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
+       && TARGET_MINIMAL_TOC)
+@@ -21303,35 +21303,39 @@ rs6000_xcoff_asm_globalize_label (FILE *stream, const char *name)
+    points to the section string variable.  */
+ 
+ static void
+-rs6000_xcoff_output_readonly_section_asm_op (const void *directive)
++rs6000_xcoff_output_readonly_section_asm_op (const char *directive)
+ {
+   fprintf (asm_out_file, "\t.csect %s[RO],%s\n",
+-	   *(const char *const *) directive,
++	   directive
++	   ? xcoff_private_rodata_section_name
++	   : xcoff_read_only_section_name,
+ 	   XCOFF_CSECT_DEFAULT_ALIGNMENT_STR);
+ }
+ 
+ /* Likewise for read-write sections.  */
+ 
+ static void
+-rs6000_xcoff_output_readwrite_section_asm_op (const void *directive)
++rs6000_xcoff_output_readwrite_section_asm_op (const char *)
+ {
+   fprintf (asm_out_file, "\t.csect %s[RW],%s\n",
+-	   *(const char *const *) directive,
++	   xcoff_private_data_section_name,
+ 	   XCOFF_CSECT_DEFAULT_ALIGNMENT_STR);
+ }
+ 
+ static void
+-rs6000_xcoff_output_tls_section_asm_op (const void *directive)
++rs6000_xcoff_output_tls_section_asm_op (const char *directive)
+ {
+   fprintf (asm_out_file, "\t.csect %s[TL],%s\n",
+-	   *(const char *const *) directive,
++	   directive
++	   ? xcoff_private_data_section_name
++	   : xcoff_tls_data_section_name,
+ 	   XCOFF_CSECT_DEFAULT_ALIGNMENT_STR);
+ }
+ 
+ /* A get_unnamed_section callback, used for switching to toc_section.  */
+ 
+ static void
+-rs6000_xcoff_output_toc_section_asm_op (const void *data ATTRIBUTE_UNUSED)
++rs6000_xcoff_output_toc_section_asm_op (const char *data ATTRIBUTE_UNUSED)
+ {
+   if (TARGET_MINIMAL_TOC)
+     {
+@@ -21358,26 +21362,26 @@ rs6000_xcoff_asm_init_sections (void)
+ {
+   read_only_data_section
+     = get_unnamed_section (0, rs6000_xcoff_output_readonly_section_asm_op,
+-			   &xcoff_read_only_section_name);
++			   NULL);
+ 
+   private_data_section
+     = get_unnamed_section (SECTION_WRITE,
+ 			   rs6000_xcoff_output_readwrite_section_asm_op,
+-			   &xcoff_private_data_section_name);
++			   NULL);
+ 
+   read_only_private_data_section
+     = get_unnamed_section (0, rs6000_xcoff_output_readonly_section_asm_op,
+-			   &xcoff_private_rodata_section_name);
++			   "");
+ 
+   tls_data_section
+     = get_unnamed_section (SECTION_TLS,
+ 			   rs6000_xcoff_output_tls_section_asm_op,
+-			   &xcoff_tls_data_section_name);
++			   NULL);
+ 
+   tls_private_data_section
+     = get_unnamed_section (SECTION_TLS,
+ 			   rs6000_xcoff_output_tls_section_asm_op,
+-			   &xcoff_private_data_section_name);
++			   "");
+ 
+   toc_section
+     = get_unnamed_section (0, rs6000_xcoff_output_toc_section_asm_op, NULL);
+diff --git a/gcc/doc/gty.texi b/gcc/doc/gty.texi
+index b996ff2c44e..ca2c8404894 100644
+--- a/gcc/doc/gty.texi
++++ b/gcc/doc/gty.texi
+@@ -205,6 +205,15 @@ If @code{skip} is applied to a field, the type machinery will ignore it.
+ This is somewhat dangerous; the only safe use is in a union when one
+ field really isn't ever used.
+ 
++@findex callback
++@item callback
++
++@code{callback} should be applied to fields with pointer to function type
++and causes the field to be ignored similarly to @code{skip}, except when
++writing PCH and the field is non-NULL it will remember the field's address
++for relocation purposes if the process writing PCH has different load base
++from a process reading PCH.
++
+ @findex for_user
+ @item for_user
+ 
+diff --git a/gcc/gengtype-state.c b/gcc/gengtype-state.c
+index ac9d536963f..36a96e84574 100644
+--- a/gcc/gengtype-state.c
++++ b/gcc/gengtype-state.c
+@@ -57,6 +57,7 @@ type_lineloc (const_type_p ty)
+     case TYPE_STRING:
+     case TYPE_POINTER:
+     case TYPE_ARRAY:
++    case TYPE_CALLBACK:
+       return NULL;
+     default:
+       gcc_unreachable ();
+@@ -171,6 +172,7 @@ private:
+   void write_state_version (const char *version);
+   void write_state_scalar_type (type_p current);
+   void write_state_string_type (type_p current);
++  void write_state_callback_type (type_p current);
+   void write_state_undefined_type (type_p current);
+   void write_state_struct_union_type (type_p current, const char *kindstr);
+   void write_state_struct_type (type_p current);
+@@ -898,6 +900,20 @@ state_writer::write_state_string_type (type_p current)
+     fatal ("Unexpected type in write_state_string_type");
+ }
+ 
++/* Write the callback type.  There is only one such thing! */
++void
++state_writer::write_state_callback_type (type_p current)
++{
++  if (current == &callback_type)
++    {
++      write_any_indent (0);
++      fprintf (state_file, "callback ");
++      write_state_common_type_content (current);
++    }
++  else
++    fatal ("Unexpected type in write_state_callback_type");
++}
++
+ /* Write an undefined type.  */
+ void
+ state_writer::write_state_undefined_type (type_p current)
+@@ -1143,6 +1159,9 @@ state_writer::write_state_type (type_p current)
+ 	case TYPE_STRING:
+ 	  write_state_string_type (current);
+ 	  break;
++	case TYPE_CALLBACK:
++	  write_state_callback_type (current);
++	  break;
+ 	}
+     }
+ 
+@@ -1477,6 +1496,14 @@ read_state_string_type (type_p *type)
+   read_state_common_type_content (*type);
+ }
+ 
++/* Read the callback_type.  */
++static void
++read_state_callback_type (type_p *type)
++{
++  *type = &callback_type;
++  read_state_common_type_content (*type);
++}
++
+ 
+ /* Read a lang_bitmap representing a set of GCC front-end languages.  */
+ static void
+@@ -1834,6 +1861,11 @@ read_state_type (type_p *current)
+ 	      next_state_tokens (1);
+ 	      read_state_string_type (current);
+ 	    }
++	  else if (state_token_is_name (t0, "callback"))
++	    {
++	      next_state_tokens (1);
++	      read_state_callback_type (current);
++	    }
+ 	  else if (state_token_is_name (t0, "undefined"))
+ 	    {
+ 	      *current = XCNEW (struct type);
+diff --git a/gcc/gengtype.c b/gcc/gengtype.c
+index a77cfd92bfa..b9daaa43689 100644
+--- a/gcc/gengtype.c
++++ b/gcc/gengtype.c
+@@ -172,6 +172,7 @@ dbgprint_count_type_at (const char *fil, int lin, const char *msg, type_p t)
+   int nb_struct = 0, nb_union = 0, nb_array = 0, nb_pointer = 0;
+   int nb_lang_struct = 0;
+   int nb_user_struct = 0, nb_undefined = 0;
++  int nb_callback = 0;
+   type_p p = NULL;
+   for (p = t; p; p = p->next)
+     {
+@@ -202,6 +203,9 @@ dbgprint_count_type_at (const char *fil, int lin, const char *msg, type_p t)
+ 	case TYPE_ARRAY:
+ 	  nb_array++;
+ 	  break;
++	case TYPE_CALLBACK:
++	  nb_callback++;
++	  break;
+ 	case TYPE_LANG_STRUCT:
+ 	  nb_lang_struct++;
+ 	  break;
+@@ -217,6 +221,8 @@ dbgprint_count_type_at (const char *fil, int lin, const char *msg, type_p t)
+     fprintf (stderr, "@@%%@@ %d structs, %d unions\n", nb_struct, nb_union);
+   if (nb_pointer > 0 || nb_array > 0)
+     fprintf (stderr, "@@%%@@ %d pointers, %d arrays\n", nb_pointer, nb_array);
++  if (nb_callback > 0)
++    fprintf (stderr, "@@%%@@ %d callbacks\n", nb_callback);
+   if (nb_lang_struct > 0)
+     fprintf (stderr, "@@%%@@ %d lang_structs\n", nb_lang_struct);
+   if (nb_user_struct > 0)
+@@ -495,6 +501,10 @@ struct type scalar_char = {
+   TYPE_SCALAR, 0, 0, 0, GC_USED, {0}
+ };
+ 
++struct type callback_type = {
++  TYPE_CALLBACK, 0, 0, 0, GC_USED, {0}
++};
++
+ /* Lists of various things.  */
+ 
+ pair_p typedefs = NULL;
+@@ -1464,7 +1474,7 @@ static void set_gc_used (pair_p);
+ 
+ static void
+ process_gc_options (options_p opt, enum gc_used_enum level, int *maybe_undef,
+-		    int *length, int *skip, type_p *nested_ptr)
++		    int *length, int *skip, int *callback, type_p *nested_ptr)
+ {
+   options_p o;
+   for (o = opt; o; o = o->next)
+@@ -1478,6 +1488,8 @@ process_gc_options (options_p opt, enum gc_used_enum level, int *maybe_undef,
+       *length = 1;
+     else if (strcmp (o->name, "skip") == 0)
+       *skip = 1;
++    else if (strcmp (o->name, "callback") == 0)
++      *callback = 1;
+     else if (strcmp (o->name, "nested_ptr") == 0
+ 	     && o->kind == OPTION_NESTED)
+       *nested_ptr = ((const struct nested_ptr_data *) o->info.nested)->type;
+@@ -1526,7 +1538,7 @@ set_gc_used_type (type_p t, enum gc_used_enum level,
+ 	type_p dummy2;
+ 	bool allow_undefined_field_types = (t->kind == TYPE_USER_STRUCT);
+ 
+-	process_gc_options (t->u.s.opt, level, &dummy, &dummy, &dummy,
++	process_gc_options (t->u.s.opt, level, &dummy, &dummy, &dummy, &dummy,
+ 			    &dummy2);
+ 
+ 	if (t->u.s.base_class)
+@@ -1542,9 +1554,10 @@ set_gc_used_type (type_p t, enum gc_used_enum level,
+ 	    int maybe_undef = 0;
+ 	    int length = 0;
+ 	    int skip = 0;
++	    int callback = 0;
+ 	    type_p nested_ptr = NULL;
+ 	    process_gc_options (f->opt, level, &maybe_undef, &length, &skip,
+-				&nested_ptr);
++				&callback, &nested_ptr);
+ 
+ 	    if (nested_ptr && f->type->kind == TYPE_POINTER)
+ 	      set_gc_used_type (nested_ptr, GC_POINTED_TO);
+@@ -1554,6 +1567,8 @@ set_gc_used_type (type_p t, enum gc_used_enum level,
+ 	      set_gc_used_type (f->type->u.p, GC_MAYBE_POINTED_TO);
+ 	    else if (skip)
+ 	      ;			/* target type is not used through this field */
++	    else if (callback)
++	      f->type = &callback_type;
+ 	    else
+ 	      set_gc_used_type (f->type, GC_USED, allow_undefined_field_types);
+ 	  }
+@@ -2519,6 +2534,7 @@ output_mangled_typename (outf_p of, const_type_p t)
+       {
+       case TYPE_NONE:
+       case TYPE_UNDEFINED:
++      case TYPE_CALLBACK:
+ 	gcc_unreachable ();
+ 	break;
+       case TYPE_POINTER:
+@@ -2719,6 +2735,8 @@ walk_type (type_p t, struct walk_type_data *d)
+       ;
+     else if (strcmp (oo->name, "for_user") == 0)
+       ;
++    else if (strcmp (oo->name, "callback") == 0)
++      ;
+     else
+       error_at_line (d->line, "unknown option `%s'\n", oo->name);
+ 
+@@ -2744,6 +2762,7 @@ walk_type (type_p t, struct walk_type_data *d)
+     {
+     case TYPE_SCALAR:
+     case TYPE_STRING:
++    case TYPE_CALLBACK:
+       d->process_field (t, d);
+       break;
+ 
+@@ -3275,6 +3294,7 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
+       break;
+ 
+     case TYPE_SCALAR:
++    case TYPE_CALLBACK:
+       break;
+ 
+     case TYPE_ARRAY:
+@@ -3820,6 +3840,7 @@ write_types_local_user_process_field (type_p f, const struct walk_type_data *d)
+       break;
+ 
+     case TYPE_SCALAR:
++    case TYPE_CALLBACK:
+       break;
+ 
+     case TYPE_ARRAY:
+@@ -3906,6 +3927,13 @@ write_types_local_process_field (type_p f, const struct walk_type_data *d)
+     case TYPE_SCALAR:
+       break;
+ 
++    case TYPE_CALLBACK:
++      oprintf (d->of, "%*sif ((void *)(%s) == this_obj)\n", d->indent, "",
++	       d->prev_val[3]);
++      oprintf (d->of, "%*s  gt_pch_note_callback (&(%s), this_obj);\n",
++	       d->indent, "", d->val);
++      break;
++
+     case TYPE_ARRAY:
+     case TYPE_NONE:
+     case TYPE_UNDEFINED:
+@@ -4434,6 +4462,7 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
+     case TYPE_UNDEFINED:
+     case TYPE_UNION:
+     case TYPE_LANG_STRUCT:
++    case TYPE_CALLBACK:
+       error_at_line (line, "global `%s' is unimplemented type", name);
+     }
+ }
+@@ -4728,6 +4757,9 @@ dump_typekind (int indent, enum typekind kind)
+     case TYPE_ARRAY:
+       printf ("TYPE_ARRAY");
+       break;
++    case TYPE_CALLBACK:
++      printf ("TYPE_CALLBACK");
++      break;
+     case TYPE_LANG_STRUCT:
+       printf ("TYPE_LANG_STRUCT");
+       break;
+@@ -4894,6 +4926,7 @@ dump_type (int indent, type_p t)
+ 	      t->u.scalar_is_char ? "true" : "false");
+       break;
+     case TYPE_STRING:
++    case TYPE_CALLBACK:
+       break;
+     case TYPE_STRUCT:
+     case TYPE_UNION:
+diff --git a/gcc/gengtype.h b/gcc/gengtype.h
+index 8a7a54957ea..8fa7064ca85 100644
+--- a/gcc/gengtype.h
++++ b/gcc/gengtype.h
+@@ -154,6 +154,9 @@ enum typekind {
+   TYPE_UNION,           /* Type for GTY-ed discriminated unions.  */
+   TYPE_POINTER,         /* Pointer type to GTY-ed type.  */
+   TYPE_ARRAY,           /* Array of GTY-ed types.  */
++  TYPE_CALLBACK,	/* A function pointer that needs relocation if
++			   the executable has been loaded at a different
++			   address.  */
+   TYPE_LANG_STRUCT,     /* GCC front-end language specific structs.
+                            Various languages may have homonymous but
+                            different structs.  */
+@@ -331,6 +334,9 @@ extern struct type string_type;
+ extern struct type scalar_nonchar;
+ extern struct type scalar_char;
+ 
++/* The one and only TYPE_CALLBACK.  */
++extern struct type callback_type;
++
+ /* Test if a type is a union, either a plain one or a language
+    specific one.  */
+ #define UNION_P(x)					\
+diff --git a/gcc/ggc-common.c b/gcc/ggc-common.c
+index b6abed1d9a2..7c998e95473 100644
+--- a/gcc/ggc-common.c
++++ b/gcc/ggc-common.c
+@@ -256,6 +256,7 @@ saving_hasher::equal (const ptr_data *p1
+ }
+ 
+ static hash_table<saving_hasher> *saving_htab;
++static vec<void *> callback_vec;
+ 
+ /* Register an object in the hash table.  */
+ 
+@@ -288,6 +289,23 @@ gt_pch_note_object (void *obj, void *not
+   return 1;
+ }
+ 
++/* Register address of a callback pointer.  */
++void
++gt_pch_note_callback (void *obj, void *base)
++{
++  void *ptr;
++  memcpy (&ptr, obj, sizeof (void *));
++  if (ptr != NULL)
++    {
++      struct ptr_data *data
++	= (struct ptr_data *)
++	  saving_htab->find_with_hash (base, POINTER_HASH (base));
++      gcc_assert (data);
++      callback_vec.safe_push ((char *) data->new_addr
++			      + ((char *) obj - (char *) base));
++    }
++}
++
+ /* Register an object in the hash table.  */
+ 
+ void
+@@ -582,10 +600,20 @@ gt_pch_save (FILE *f)
+   ggc_pch_finish (state.d, state.f);
+   gt_pch_fixup_stringpool ();
+ 
++  unsigned num_callbacks = callback_vec.length ();
++  void (*pch_save) (FILE *) = &gt_pch_save;
++  if (fwrite (&pch_save, sizeof (pch_save), 1, f) != 1
++      || fwrite (&num_callbacks, sizeof (num_callbacks), 1, f) != 1
++      || (num_callbacks
++	  && fwrite (callback_vec.address (), sizeof (void *), num_callbacks,
++		     f) != num_callbacks))
++    fatal_error (input_location, "cannot write PCH file: %m");
++
+   XDELETE (state.ptrs);
+   XDELETE (this_object);
+   delete saving_htab;
+   saving_htab = NULL;
++  callback_vec.release ();
+ }
+ 
+ /* Read the state of the compiler back in from F.  */
+@@ -639,6 +667,30 @@ gt_pch_restore (FILE *f)
+   ggc_pch_read (f, mmi.preferred_base);
+ 
+   gt_pch_restore_stringpool ();
++
++  void (*pch_save) (FILE *);
++  unsigned num_callbacks;
++  if (fread (&pch_save, sizeof (pch_save), 1, f) != 1
++      || fread (&num_callbacks, sizeof (num_callbacks), 1, f) != 1)
++    fatal_error (input_location, "cannot read PCH file: %m");
++  if (pch_save != &gt_pch_save)
++    {
++      uintptr_t bias = (uintptr_t) &gt_pch_save - (uintptr_t) pch_save;
++      void **ptrs = XNEWVEC (void *, num_callbacks);
++      unsigned i;
++
++      if (fread (ptrs, sizeof (void *), num_callbacks, f) != num_callbacks)
++	fatal_error (input_location, "cannot read PCH file: %m");
++      for (i = 0; i < num_callbacks; ++i)
++	{
++	  memcpy (&pch_save, ptrs[i], sizeof (pch_save));
++	  pch_save = (void (*) (FILE *)) ((uintptr_t) pch_save + bias);
++	  memcpy (ptrs[i], &pch_save, sizeof (pch_save));
++	}
++      XDELETE (ptrs);
++    }
++  else if (fseek (f, num_callbacks * sizeof (void *), SEEK_CUR) != 0)
++    fatal_error (input_location, "cannot read PCH file: %m");
+ }
+ 
+ /* Default version of HOST_HOOKS_GT_PCH_GET_ADDRESS when mmap is not present.
+diff --git a/gcc/ggc.h b/gcc/ggc.h
+index 5e921d957fd..c005f7e0412 100644
+--- a/gcc/ggc.h
++++ b/gcc/ggc.h
+@@ -46,6 +46,10 @@ typedef void (*gt_handle_reorder) (void *, void *, gt_pointer_operator,
+ /* Used by the gt_pch_n_* routines.  Register an object in the hash table.  */
+ extern int gt_pch_note_object (void *, void *, gt_note_pointers);
+ 
++/* Used by the gt_pch_p_* routines.  Register address of a callback
++   pointer.  */
++extern void gt_pch_note_callback (void *, void *);
++
+ /* Used by the gt_pch_n_* routines.  Register that an object has a reorder
+    function.  */
+ extern void gt_pch_note_reorder (void *, void *, gt_handle_reorder);
+diff --git a/gcc/output.h b/gcc/output.h
+index 8f6f15308f4..4a23795bf7e 100644
+--- a/gcc/output.h
++++ b/gcc/output.h
+@@ -456,7 +456,7 @@ struct GTY(()) named_section {
+ 
+ /* A callback that writes the assembly code for switching to an unnamed
+    section.  The argument provides callback-specific data.  */
+-typedef void (*unnamed_section_callback) (const void *);
++typedef void (*unnamed_section_callback) (const char *);
+ 
+ /* Information about a SECTION_UNNAMED section.  */
+ struct GTY(()) unnamed_section {
+@@ -464,8 +464,8 @@ struct GTY(()) unnamed_section {
+ 
+   /* The callback used to switch to the section, and the data that
+      should be passed to the callback.  */
+-  unnamed_section_callback GTY ((skip)) callback;
+-  const void *GTY ((skip)) data;
++  unnamed_section_callback GTY ((callback)) callback;
++  const char *data;
+ 
+   /* The next entry in the chain of unnamed sections.  */
+   section *next;
+@@ -489,7 +489,7 @@ struct GTY(()) noswitch_section {
+   struct section_common common;
+ 
+   /* The callback used to assemble decls in this section.  */
+-  noswitch_section_callback GTY ((skip)) callback;
++  noswitch_section_callback GTY ((callback)) callback;
+ };
+ 
+ /* Information about a section, which may be named or unnamed.  */
+@@ -524,8 +524,8 @@ extern GTY(()) section *bss_noswitch_sec
+ extern GTY(()) section *in_section;
+ extern GTY(()) bool in_cold_section_p;
+ 
+-extern section *get_unnamed_section (unsigned int, void (*) (const void *),
+-				     const void *);
++extern section *get_unnamed_section (unsigned int, void (*) (const char *),
++				     const char *);
+ extern section *get_section (const char *, unsigned int, tree);
+ extern section *get_named_section (tree, const char *, int);
+ extern section *get_variable_section (tree, bool);
+@@ -546,7 +546,7 @@ extern section *get_cdtor_priority_secti
+ 
+ extern bool unlikely_text_section_p (section *);
+ extern void switch_to_section (section *);
+-extern void output_section_asm_op (const void *);
++extern void output_section_asm_op (const char *);
+ 
+ extern void record_tm_clone_pair (tree, tree);
+ extern void finish_tm_clone_pairs (void);
+diff --git a/gcc/tree-core.h b/gcc/tree-core.h
+index 8ab119dc9a2..91ae5237d7e 100644
+--- a/gcc/tree-core.h
++++ b/gcc/tree-core.h
+@@ -1961,7 +1961,7 @@ struct GTY(()) tree_function_decl {
+ struct GTY(()) tree_translation_unit_decl {
+   struct tree_decl_common common;
+   /* Source language of this translation unit.  Used for DWARF output.  */
+-  const char * GTY((skip(""))) language;
++  const char *language;
+   /* TODO: Non-optimization used to build this translation unit.  */
+   /* TODO: Root of a partial DWARF tree for global types and decls.  */
+ };
+diff --git a/gcc/varasm.c b/gcc/varasm.c
+index 9315e2c6936..aff93ca5de9 100644
+--- a/gcc/varasm.c
++++ b/gcc/varasm.c
+@@ -250,8 +250,8 @@ object_block_hasher::hash (object_block *old)
+ /* Return a new unnamed section with the given fields.  */
+ 
+ section *
+-get_unnamed_section (unsigned int flags, void (*callback) (const void *),
+-		     const void *data)
++get_unnamed_section (unsigned int flags, void (*callback) (const char *),
++		     const char *data)
+ {
+   section *sect;
+ 
+@@ -7778,9 +7778,9 @@ file_end_indicate_split_stack (void)
+    a get_unnamed_section callback.  */
+ 
+ void
+-output_section_asm_op (const void *directive)
++output_section_asm_op (const char *directive)
+ {
+-  fprintf (asm_out_file, "%s\n", (const char *) directive);
++  fprintf (asm_out_file, "%s\n", directive);
+ }
+ 
+ /* Emit assembly code to switch to section NEW_SECTION.  Do nothing if
+diff --git a/libcpp/include/line-map.h b/libcpp/include/line-map.h
+index 8b5e2f82982..bc40e333579 100644
+--- a/libcpp/include/line-map.h
++++ b/libcpp/include/line-map.h
+@@ -758,11 +758,11 @@ struct GTY(()) line_maps {
+ 
+   /* If non-null, the allocator to use when resizing 'maps'.  If null,
+      xrealloc is used.  */
+-  line_map_realloc reallocator;
++  line_map_realloc GTY((callback)) reallocator;
+ 
+   /* The allocators' function used to know the actual size it
+      allocated, for a certain allocation size requested.  */
+-  line_map_round_alloc_size_func round_alloc_size;
++  line_map_round_alloc_size_func GTY((callback)) round_alloc_size;
+ 
+   struct location_adhoc_data_map location_adhoc_data_map;
+ 
+diff --git a/gcc/config/avr/avr.c b/gcc/config/avr/avr.c
+index 6ba038881d6..1c2f7d564e7 100644
+--- a/gcc/config/avr/avr.c
++++ b/gcc/config/avr/avr.c
+@@ -10089,7 +10089,7 @@ avr_asm_asm_output_aligned_bss (FILE *file, tree decl, const char *name,
+    to track need of __do_copy_data.  */
+ 
+ static void
+-avr_output_data_section_asm_op (const void *data)
++avr_output_data_section_asm_op (const char *data)
+ {
+   avr_need_copy_data_p = true;
+ 
+@@ -10102,7 +10102,7 @@ avr_output_data_section_asm_op (const void *data)
+    to track need of __do_clear_bss.  */
+ 
+ static void
+-avr_output_bss_section_asm_op (const void *data)
++avr_output_bss_section_asm_op (const char *data)
+ {
+   avr_need_clear_bss_p = true;
+ 

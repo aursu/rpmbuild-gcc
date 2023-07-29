@@ -1,0 +1,75 @@
+From 5a5e7890cefa112e95e1de9800d8081c2a38a1da Mon Sep 17 00:00:00 2001
+From: "H.J. Lu" <hjl.tools@gmail.com>
+Date: Wed, 5 Jan 2022 18:04:21 -0800
+Subject: [PATCH 4/4] x86: Generate INT3 for __builtin_eh_return
+
+Generate INT3 after indirect jmp in exception return for -fcf-protection
+with -mharden-sls=indirect-jmp.
+
+gcc/
+
+	PR target/103925
+	* config/i386/i386.c (ix86_output_indirect_function_return):
+	Generate INT3 after indirect jmp for -mharden-sls=indirect-jmp.
+
+gcc/testsuite/
+
+	PR target/103925
+	* gcc.target/i386/harden-sls-6.c: New test.
+
+(cherry picked from commit c2e5c4feed32c808591b5278f680bbabe63eb225)
+---
+ gcc/config/i386/i386.c                       |  9 ++++++---
+ gcc/testsuite/gcc.target/i386/harden-sls-6.c | 18 ++++++++++++++++++
+ 2 files changed, 24 insertions(+), 3 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/harden-sls-6.c
+
+diff --git a/gcc/config/i386/i386.c b/gcc/config/i386/i386.c
+index 3bc14e20105..dbc3d462fda 100644
+--- a/gcc/config/i386/i386.c
++++ b/gcc/config/i386/i386.c
+@@ -29083,11 +29083,14 @@ ix86_output_indirect_function_return (rtx ret_op)
+ 	}
+       else
+ 	output_indirect_thunk (need_prefix, regno);
+-
+-      return "";
+     }
+   else
+-    return "%!jmp\t%A0";
++    {
++      output_asm_insn ("%!jmp\t%A0", &ret_op);
++      if (ix86_harden_sls & harden_sls_indirect_jmp)
++	fputs ("\tint3\n", asm_out_file);
++    }
++  return "";
+ }
+ 
+ /* Split simple return with popping POPC bytes from stack to indirect
+diff --git a/gcc/testsuite/gcc.target/i386/harden-sls-6.c b/gcc/testsuite/gcc.target/i386/harden-sls-6.c
+new file mode 100644
+index 00000000000..9068eb64008
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/harden-sls-6.c
+@@ -0,0 +1,18 @@
++/* { dg-do compile { target { ! ia32 } } } */
++/* { dg-options "-O2 -fcf-protection -mharden-sls=indirect-jmp" } */
++
++struct _Unwind_Context _Unwind_Resume_or_Rethrow_this_context;
++
++void offset (int);
++
++struct _Unwind_Context {
++  void *reg[7];
++} _Unwind_Resume_or_Rethrow() {
++  struct _Unwind_Context cur_contextcur_context =
++      _Unwind_Resume_or_Rethrow_this_context;
++  offset(0);
++  __builtin_eh_return ((long) offset, 0);
++}
++
++/* { dg-final { scan-assembler "jmp\[ \t\]+\\*%rcx" } } */
++/* { dg-final { scan-assembler-times "int3" 1 } } */
+-- 
+2.36.1
+
