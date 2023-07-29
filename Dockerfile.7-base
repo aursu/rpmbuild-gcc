@@ -1,7 +1,7 @@
 ARG os=7.9.2009
 FROM aursu/rpmbuild:${os}-build-gcc8
 
-ENV YUM0 rpmb.jfrog.io
+ENV YUM0 rpmb.jfrog.io/artifactory/custom
 ENV YUM1 centos
 
 USER root

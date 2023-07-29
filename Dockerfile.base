@@ -1,7 +1,7 @@
 ARG os=8.8.20230518
 FROM aursu/rpmbuild:${os}-build
 
-ENV YUM0 rpmb.jfrog.io
+ENV YUM0 rpmb.jfrog.io/artifactory/custom
 ENV YUM1 rocky
 
 USER root
