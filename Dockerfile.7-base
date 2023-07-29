@@ -1,5 +1,5 @@
 ARG os=7.9.2009
-FROM aursu/rpmbuild:${os}-build-gcc8
+FROM aursu/rpmbuild:${os}-build
 
 ARG repopath=rpmb.jfrog.io/artifactory/custom
 
