@@ -1,8 +1,8 @@
 ARG os=7.9.2009
 FROM aursu/rpmbuild:${os}-build
 
-# ARG repopath=rpmb.jfrog.io/artifactory/custom
-ENV YUM0 rpmb.jfrog.io/artifactory/custom
+ARG repopath=rpmb.jfrog.io/artifactory/custom
+ENV YUM0 $repopath
 ENV YUM1 centos
 
 USER root

@@ -9,6 +9,7 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
   OS7: 7.9.2009
   OS7TAG: 7.9.2009
+  YUM0: rpmb.jfrog.io/artifactory/custom
 
 centos7base:
   stage: base
@@ -16,7 +17,7 @@ centos7base:
     BASE: centos7base
   script:
     - docker volume create $CI_COMMIT_SHORT_SHA
-    - docker-compose -f docker-compose.base.yml build --no-cache --pull $BASE
+    - docker-compose -f docker-compose.base.yml build --no-cache --pull --build-arg repopath=$YUM0 $BASE
 
 centos7build:
   stage: build
