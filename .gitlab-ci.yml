@@ -21,6 +21,7 @@ centos7base:
 
 centos7build:
   stage: build
+  timeout: 4h
   variables:
     BUILD: centos7build
   script:
