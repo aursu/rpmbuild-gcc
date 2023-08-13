@@ -1,0 +1,37 @@
+ARG os=7.9.2009
+FROM aursu/rpmbuild:${os}-build
+
+ARG repopath=rpmb.jfrog.io/artifactory/custom
+ENV YUM0 $repopath
+ENV YUM1 centos
+
+USER root
+COPY system/etc/yum.repos.d/bintray-custom.repo /etc/yum.repos.d/bintray-custom.repo
+RUN yum -y install \
+        glibc-static \
+        zlib-devel \
+        gettext \
+        dejagnu \
+        sharutils \
+        texinfo \
+        texinfo-tex \
+        systemtap-sdt-devel \
+        gmp-devel \
+        mpfr-devel \
+        libmpc-devel \
+        python2-devel \
+        python3-devel \
+        elfutils-devel \
+        elfutils-libelf-devel \
+        libzstd-devel \
+        glibc.i686 \
+        glibc-devel.i686 \
+        gcc-gnat \
+        libgnat \
+        python-sphinx \
+    && yum clean all && rm -rf /var/cache/yum /var/lib/rpm/__db*
+
+RUN yum -y --enablerepo bintray-custom install \
+        isl-devel \
+        annobin-plugin-gcc \
+    && yum clean all && rm -rf /var/cache/yum /var/lib/rpm/__db*

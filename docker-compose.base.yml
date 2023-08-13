@@ -1,0 +1,16 @@
+version: "3"
+services:
+  centos7base:
+    build:
+      context: .
+      dockerfile: Dockerfile.7-base
+      args:
+        os: $OS7
+    image: "aursu/gccbuild:${OS7TAG}-base"
+  rocky8base:
+    build:
+      context: .
+      dockerfile: Dockerfile.base
+      args:
+        os: $RL8
+    image: "aursu/gccbuild:${RL8TAG}-base"
