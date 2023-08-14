@@ -170,7 +170,7 @@ URL: http://gcc.gnu.org
 # Need binutils which support -plugin
 # Need binutils which support .loc view >= 2.30
 # Need binutils which support --generate-missing-build-notes=yes >= 2.31
-%if 0%{?fedora} >= 29 || 0%{?rhel} > 7
+%if 0%{?fedora} >= 29 || 0%{?rhel} > 8
 BuildRequires: binutils >= 2.31
 %else
 BuildRequires: binutils >= 2.24
@@ -182,7 +182,11 @@ BuildRequires: zlib-devel, gettext, dejagnu, bison, flex, sharutils
 BuildRequires: texinfo, texinfo-tex, /usr/bin/pod2man
 BuildRequires: systemtap-sdt-devel >= 1.3
 BuildRequires: gmp-devel >= 4.1.2-8, mpfr-devel >= 3.1.0, libmpc-devel >= 0.8.1
+%if 0%{?fedora} >= 29 || 0%{?rhel} > 7
+BuildRequires: python3-devel, python2-devel
+%else
 BuildRequires: python3-devel, /usr/bin/python
+%endif
 BuildRequires: gcc, gcc-c++, make
 %if %{build_go}
 BuildRequires: hostname, procps

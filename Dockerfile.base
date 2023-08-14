@@ -8,30 +8,31 @@ ENV YUM1 rocky
 USER root
 COPY system/etc/yum.repos.d/bintray-custom.repo /etc/yum.repos.d/bintray-custom.repo
 RUN dnf -y install \
-        glibc-static \
-        zlib-devel \
-        gettext \
         dejagnu \
-        sharutils \
-        texinfo \
-        texinfo-tex \
-        systemtap-sdt-devel \
-        gmp-devel \
-        mpfr-devel \
-        libmpc-devel \
-        python2-devel \
-        python3-devel \
         elfutils-devel \
         elfutils-libelf-devel \
-        libzstd-devel \
+        gcc-gnat \
+        gettext \
+        gdb \
         glibc.i686 \
         glibc-devel.i686 \
-        gcc-gnat \
+        glibc-static \
+        gmp-devel \
         libgnat \
+        libmpc-devel \
+        libzstd-devel \
+        mpfr-devel \
+        python2-devel \
+        python3-devel \
         python3-sphinx \
+        sharutils \
+        systemtap-sdt-devel \
+        texinfo \
+        texinfo-tex \
+        zlib-devel \
     && dnf clean all && rm -rf /var/cache/dnf /var/lib/rpm/__db*
 
-# RUN dnf -y --enablerepo bintray-custom install \
-#         isl-devel \
-#         annobin-plugin-gcc \
-#     && dnf clean all && rm -rf /var/cache/dnf /var/lib/rpm/__db*
+RUN dnf -y --enablerepo bintray-custom install \
+        isl-devel \
+        annobin-plugin-gcc \
+    && dnf clean all && rm -rf /var/cache/dnf /var/lib/rpm/__db*
