@@ -6,7 +6,7 @@ ENV YUM0 $repopath
 ENV YUM1 centos
 
 USER root
-COPY system/etc/yum.repos.d/bintray-custom.repo /etc/yum.repos.d/bintray-custom.repo
+COPY system/etc/yum.repos.d/bintray-custom-yum.repo /etc/yum.repos.d/bintray-custom.repo
 RUN yum -y install \
         glibc-static \
         zlib-devel \
