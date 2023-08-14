@@ -1,5 +1,5 @@
 ARG os=8.8.20230518
-FROM aursu/rpmbuild:${os}-build
+FROM aursu/gccbuild:${os}-base
 
 COPY SOURCES ${BUILD_TOPDIR}/SOURCES
 COPY SPECS ${BUILD_TOPDIR}/SPECS
