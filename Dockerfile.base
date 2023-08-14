@@ -28,7 +28,7 @@ RUN dnf -y install \
         glibc-devel.i686 \
         gcc-gnat \
         libgnat \
-        python-sphinx \
+        python3-sphinx \
     && dnf clean all && rm -rf /var/cache/dnf /var/lib/rpm/__db*
 
 # RUN dnf -y --enablerepo bintray-custom install \
