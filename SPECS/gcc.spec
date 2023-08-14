@@ -797,12 +797,12 @@ Summary: The annobin plugin for gcc, built by the installed version of gcc
 Requires: gcc = %{version}-%{release}
 # Starting with release 10.01 annobin fixed a bug in its configure scripts
 # which prevented them from working with a built but not installed compiler
-BuildRequires: annobin >= 10.01
+# BuildRequires: annobin >= 10.01
 # Starting with release  9.93 annobin-plugin-gcc puts a copy of the sources
 # in /usr/src/annobin
 # FIXME: Currently the annobin-plugin-gcc subpackage only exists in Fedora.
 # For RHEL-9 the annobin package does everything.
-# BuildRequires: annobin-plugin-gcc
+BuildRequires: annobin-plugin-gcc
 # Needed in order to be able to decompress the annobin source tarball.
 BuildRequires: xz
 
