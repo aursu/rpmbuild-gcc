@@ -5,6 +5,7 @@ services:
       context: .
       args:
         os: $OS7
+    command: ["-ba", "--with", "annobin-plugin-gcc"]
   rocky8build:
     build:
       context: .

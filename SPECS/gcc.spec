@@ -123,6 +123,8 @@
 # rhel != 9
 %global build_cross 0
 %endif
+# annobin-plugin-gcc
+%define with_annobin_plugin_gcc  %{?_with_annobin_plugin_gcc: 1} %{?!_with_annobin_plugin_gcc: 0}
 # TODO: Add ppc64le-redhat-linux s390x-redhat-linux later.
 %global cross_targets aarch64-redhat-linux
 Summary: Various compilers (C, C++, Objective-C, ...)
@@ -806,7 +808,12 @@ Requires: gcc = %{version}-%{release}
 # in /usr/src/annobin
 # FIXME: Currently the annobin-plugin-gcc subpackage only exists in Fedora.
 # For RHEL-9 the annobin package does everything.
+# BuildRequires: annobin-plugin-gcc
+%if %{with_annobin_plugin_gcc}
 BuildRequires: annobin-plugin-gcc
+%else
+BuildRequires: annobin >= 10.01
+%endif
 # Needed in order to be able to decompress the annobin source tarball.
 BuildRequires: xz
 

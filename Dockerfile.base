@@ -8,6 +8,7 @@ ENV DNF1 rocky
 USER root
 COPY system/etc/yum.repos.d/bintray-custom.repo /etc/yum.repos.d/bintray-custom.repo
 RUN dnf -y install \
+        annobin \
         dejagnu \
         elfutils-devel \
         elfutils-libelf-devel \
@@ -18,6 +19,7 @@ RUN dnf -y install \
         glibc-devel.i686 \
         glibc-static \
         gmp-devel \
+        isl-devel \
         libgnat \
         libmpc-devel \
         libzstd-devel \
@@ -30,9 +32,4 @@ RUN dnf -y install \
         texinfo \
         texinfo-tex \
         zlib-devel \
-    && dnf clean all && rm -rf /var/cache/dnf /var/lib/rpm/__db*
-
-RUN dnf -y --enablerepo bintray-custom install \
-        isl-devel \
-        annobin-plugin-gcc \
     && dnf clean all && rm -rf /var/cache/dnf /var/lib/rpm/__db*
