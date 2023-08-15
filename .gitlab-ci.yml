@@ -32,7 +32,7 @@ rocky8base:
 
 centos7build:
   stage: build
-  timeout: 4h
+  timeout: 8h
   variables:
     BUILD: centos7build
   script:
@@ -41,7 +41,7 @@ centos7build:
 
 rocky8build:
   stage: build
-  timeout: 4h
+  timeout: 8h
   variables:
     BUILD: rocky8build
   script:
