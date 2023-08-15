@@ -125,6 +125,7 @@
 %endif
 # annobin-plugin-gcc
 %define with_annobin_plugin_gcc  %{?_with_annobin_plugin_gcc: 1} %{?!_with_annobin_plugin_gcc: 0}
+%define make_opts -s
 # TODO: Add ppc64le-redhat-linux s390x-redhat-linux later.
 %global cross_targets aarch64-redhat-linux
 Summary: Various compilers (C, C++, Objective-C, ...)
@@ -987,7 +988,7 @@ mkdir obj-%{gcc_target_platform}
 cd obj-%{gcc_target_platform}
 CC="$CC" CXX="$CXX" CFLAGS="%{optflags} -fPIE" CXXFLAGS="%{optflags} -fPIE" LDFLAGS="-pie -Wl,-z,now" \
 ../configure --prefix=%{_prefix}
-make %{?_smp_mflags}
+make %{?_smp_mflags} %{?make_opts}
 make install prefix=${IROOT}%{_prefix}
 cd ../..
 
@@ -1008,7 +1009,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	--with-bugurl=http://bugzilla.redhat.com/bugzilla \
 	--enable-checking=release --with-system-zlib \
 	--with-gcc-major-version-only --without-isl --enable-host-pie --enable-host-bind-now
-make %{?_smp_mflags}
+make %{?_smp_mflags} %{?make_opts}
 cd ..
 rm -f newlib
 %endif
@@ -1030,7 +1031,7 @@ sed -i 's|libisl|libgcc11privateisl|g' \
 ../../isl-%{isl_version}/configure \
   CC=/usr/bin/gcc CXX=/usr/bin/g++ \
   CFLAGS="${CFLAGS:-%optflags} $ISL_FLAG_PIC" --prefix=`cd ..; pwd`/isl-install
-make %{?_smp_mflags}
+make %{?_smp_mflags} %{?make_opts}
 make install
 cd ../isl-install/lib
 rm libgcc11privateisl.so{,.15}
@@ -1235,9 +1236,9 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	$CONFIGURE_OPTS
 
 %ifarch sparc sparcv9 sparc64
-make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LDFLAGS_FOR_TARGET=-Wl,-z,relro,-z,now bootstrap
+make %{?_smp_mflags} %{?make_opts} BOOT_CFLAGS="$OPT_FLAGS" LDFLAGS_FOR_TARGET=-Wl,-z,relro,-z,now bootstrap
 %else
-make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LDFLAGS_FOR_TARGET=-Wl,-z,relro,-z,now profiledbootstrap
+make %{?_smp_mflags} %{?make_opts} BOOT_CFLAGS="$OPT_FLAGS" LDFLAGS_FOR_TARGET=-Wl,-z,relro,-z,now profiledbootstrap
 %endif
 
 CC="`%{gcc_target_platform}/libstdc++-v3/scripts/testsuite_flags --build-cc`"
@@ -1253,7 +1254,7 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	XCFLAGS="$OPT_FLAGS" TCFLAGS="$OPT_FLAGS" \
 	../../configure --disable-bootstrap --enable-host-shared  --enable-host-bind-now \
 	--enable-languages=jit $CONFIGURE_OPTS
-make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" all-gcc
+make %{?_smp_mflags} %{?make_opts} BOOT_CFLAGS="$OPT_FLAGS" all-gcc
 cp -a gcc/libgccjit.so* ../gcc/
 cd ../gcc/
 ln -sf xgcc %{gcc_target_platform}-gcc-%{gcc_major}
