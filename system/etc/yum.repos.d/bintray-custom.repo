@@ -1,7 +1,0 @@
-[bintray-custom]
-name=bintray-custom
-baseurl=https://$DNF0/$DNF1/$releasever/
-gpgcheck=0
-repo_gpgcheck=0
-enabled=0
-sslverify=0

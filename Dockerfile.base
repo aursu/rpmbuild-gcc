@@ -3,10 +3,8 @@ FROM aursu/rpmbuild:${os}-build
 
 ARG repopath=rpmb.jfrog.io/artifactory/custom
 ENV DNF0 $repopath
-ENV DNF1 rocky
 
 USER root
-COPY system/etc/yum.repos.d/bintray-custom.repo /etc/yum.repos.d/bintray-custom.repo
 RUN dnf -y install \
         annobin \
         dejagnu \

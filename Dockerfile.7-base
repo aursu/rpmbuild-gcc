@@ -1,12 +1,10 @@
 ARG os=7.9.2009
-FROM aursu/rpmbuild:${os}-build
+FROM aursu/rpmbuild:${os}-build-gcc8
 
 ARG repopath=rpmb.jfrog.io/artifactory/custom
 ENV YUM0 $repopath
-ENV YUM1 centos
 
 USER root
-COPY system/etc/yum.repos.d/bintray-custom-yum.repo /etc/yum.repos.d/bintray-custom.repo
 RUN yum -y install \
         glibc-static \
         zlib-devel \
