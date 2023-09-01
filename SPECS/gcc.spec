@@ -123,6 +123,9 @@
 # rhel != 9
 %global build_cross 0
 %endif
+%if 0%{?rhel} == 7
+%global build_ada 0
+%endif
 # annobin-plugin-gcc
 %define with_annobin_plugin_gcc  %{?_with_annobin_plugin_gcc: 1} %{?!_with_annobin_plugin_gcc: 0}
 %define make_opts -s
