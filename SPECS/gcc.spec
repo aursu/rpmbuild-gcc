@@ -1154,7 +1154,9 @@ CONFIGURE_OPTS_NATIVE="\
 	--build=%{gcc_target_platform} --target=%{gcc_target_platform} --with-cpu=default32
 %endif
 %ifarch %{ix86} x86_64
+%if 0%{?fedora} || 0%{?rhel} > 7
 	--enable-cet \
+%endif
 	--with-tune=generic \
 %endif
 %if 0%{?rhel} >= 7
