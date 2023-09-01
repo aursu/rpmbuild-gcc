@@ -8,6 +8,9 @@
 %global nvptx_tools_gitrev 5f6f343a302d620b0868edab376c00b15741e39e
 %global newlib_cygwin_gitrev 50e2a63b04bdd018484605fbb954fd1bd5147fa0
 %global _unpackaged_files_terminate_build 0
+%global _performance_build 1
+# Hardening slows the compiler way too much.
+%undefine _hardened_build
 %if 0%{?fedora} > 27 || 0%{?rhel} > 7
 # Until annobin is fixed (#1519165).
 %undefine _annotated_build
@@ -25,7 +28,7 @@
 %else
 %global multilib_64_archs sparc64 ppc64 ppc64p7 x86_64
 %endif
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %global build_ada 0
 %global build_objc 0
 %global build_go 0
@@ -122,9 +125,6 @@
 %else
 # rhel != 9
 %global build_cross 0
-%endif
-%if 0%{?rhel} == 7
-%global build_ada 0
 %endif
 # annobin-plugin-gcc
 %define with_annobin_plugin_gcc  %{?_with_annobin_plugin_gcc: 1} %{?!_with_annobin_plugin_gcc: 0}
