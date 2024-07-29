@@ -120,7 +120,7 @@
 %global build_cross 0
 %endif
 %else
-%dnl rhel != 9
+#%dnl rhel != 9
 %global build_cross 0
 %endif
 # annobin-plugin-gcc
@@ -3606,7 +3606,7 @@ end
 %{_prefix}/lib/gcc/aarch64-redhat-linux/%{gcc_major}/libstdc++.so
 %{_prefix}/lib/gcc/aarch64-redhat-linux/%{gcc_major}/libstdc++.a
 %{_prefix}/lib/gcc/aarch64-redhat-linux/%{gcc_major}/libsupc++.a
-%dnl build_cross
+#%dnl build_cross
 %endif
 
 %changelog
