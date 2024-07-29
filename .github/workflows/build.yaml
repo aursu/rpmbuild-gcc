@@ -23,9 +23,10 @@ jobs:
             repo_path: rocky/8
     env:
       BUILD_COMPOSE_FILE: ${{ matrix.compose-file }}
-      BINTRAY_REPO: ${{ matrix.repo }}
+      BASE: ${{ matrix.base }}
       BUILD: ${{ matrix.build }}
       UPLOADER: ${{ matrix.uploader }}
+      BINTRAY_REPO: ${{ matrix.repo }}
       REPO_PATH: ${{ matrix.repo_path }}
     steps:
       - uses: actions/checkout@v2
