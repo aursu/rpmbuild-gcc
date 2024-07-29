@@ -1,16 +1,13 @@
-%global DATE 20221121
-%global gitrev 643e61c61b308f9c572da4ccd5f730fb
-%global gcc_version 11.3.1
+%global DATE 20240719
+%global gitrev a985e3068a6f8045f8a6f2d2d5ae75f5eb0a8767
+%global gcc_version 11.5.0
 %global gcc_major 11
 # Note, gcc_release must be integer, if you want to add suffixes to
 # %%{release}, append them after %%{gcc_release} on Release: line.
-%global gcc_release 4
+%global gcc_release 2
 %global nvptx_tools_gitrev 5f6f343a302d620b0868edab376c00b15741e39e
 %global newlib_cygwin_gitrev 50e2a63b04bdd018484605fbb954fd1bd5147fa0
 %global _unpackaged_files_terminate_build 0
-%global _performance_build 1
-# Hardening slows the compiler way too much.
-%undefine _hardened_build
 %if 0%{?fedora} > 27 || 0%{?rhel} > 7
 # Until annobin is fixed (#1519165).
 %undefine _annotated_build
@@ -28,7 +25,7 @@
 %else
 %global multilib_64_archs sparc64 ppc64 ppc64p7 x86_64
 %endif
-%if 0%{?rhel} >= 7
+%if 0%{?rhel} > 7
 %global build_ada 0
 %global build_objc 0
 %global build_go 0
@@ -91,7 +88,7 @@
 %else
 %global build_isl 1
 %endif
-%global build_libstdcxx_docs 0
+%global build_libstdcxx_docs 1
 %ifarch %{ix86} x86_64 ppc ppc64 ppc64le ppc64p7 s390 s390x %{arm} aarch64 %{mips}
 %global attr_ifunc 1
 %else
@@ -123,7 +120,7 @@
 %global build_cross 0
 %endif
 %else
-# rhel != 9
+%dnl rhel != 9
 %global build_cross 0
 %endif
 # annobin-plugin-gcc
@@ -134,7 +131,7 @@
 Summary: Various compilers (C, C++, Objective-C, ...)
 Name: gcc
 Version: %{gcc_version}
-Release: %{gcc_release}.4%{?dist}
+Release: %{gcc_release}%{?dist}
 # libgcc, libgfortran, libgomp, libstdc++ and crtstuff have
 # GCC Runtime Exception.
 License: GPLv3+ and GPLv3+ with exceptions and GPLv2+ with exceptions and LGPLv2+ and BSD
@@ -163,6 +160,24 @@ Source2: newlib-cygwin-%{newlib_cygwin_gitrev}.tar.xz
 %global isl_version 0.18
 Source3: https://gcc.gnu.org/pub/gcc/infrastructure/isl-%{isl_version}.tar.bz2
 URL: http://gcc.gnu.org
+# Need binutils with -pie support >= 2.14.90.0.4-4
+# Need binutils which can omit dot symbols and overlap .opd on ppc64 >= 2.15.91.0.2-4
+# Need binutils which handle -msecure-plt on ppc >= 2.16.91.0.2-2
+# Need binutils which support .weakref >= 2.16.91.0.3-1
+# Need binutils which support --hash-style=gnu >= 2.17.50.0.2-7
+# Need binutils which support mffgpr and mftgpr >= 2.17.50.0.2-8
+# Need binutils which support --build-id >= 2.17.50.0.17-3
+# Need binutils which support %%gnu_unique_object >= 2.19.51.0.14
+# Need binutils which support .cfi_sections >= 2.19.51.0.14-33
+# Need binutils which support --no-add-needed >= 2.20.51.0.2-12
+# Need binutils which support -plugin
+# Need binutils which support .loc view >= 2.30
+# Need binutils which support --generate-missing-build-notes=yes >= 2.31
+%if 0%{?fedora} >= 29 || 0%{?rhel} > 7
+BuildRequires: binutils >= 2.31
+%else
+BuildRequires: binutils >= 2.24
+%endif
 # While gcc doesn't include statically linked binaries, during testing
 # -static is used several times.
 BuildRequires: glibc-static
@@ -214,18 +229,15 @@ Requires: cpp = %{version}-%{release}
 # Need --as-needed/--no-as-needed support
 # On ppc64, need omit dot symbols support and --non-overlapping-opd
 # Need binutils that owns /usr/bin/c++filt
-# Need binutils with -pie support >= 2.14.90.0.4-4
-# Need binutils which can omit dot symbols and overlap .opd on ppc64 >= 2.15.91.0.2-4
-# Need binutils which handle -msecure-plt on ppc >= 2.16.91.0.2-2
-# Need binutils which support .weakref >= 2.16.91.0.3-1
-# Need binutils which support --hash-style=gnu >= 2.17.50.0.2-7
-# Need binutils which support mffgpr and mftgpr >= 2.17.50.0.2-8
-# Need binutils which support --build-id >= 2.17.50.0.17-3
-# Need binutils which support %%gnu_unique_object >= 2.19.51.0.14
-# Need binutils which support .cfi_sections >= 2.19.51.0.14-33
-# Need binutils which support --no-add-needed >= 2.20.51.0.2-12
-# Need binutils which support -plugin
-# Need binutils which support .loc view >= 2.30
+# Need binutils that support .weakref
+# Need binutils that supports --hash-style=gnu
+# Need binutils that support mffgpr/mftgpr
+# Need binutils that support --build-id
+# Need binutils that support %%gnu_unique_object
+# Need binutils that support .cfi_sections
+# Need binutils that support --no-add-needed
+# Need binutils that support -plugin
+# Need binutils that support .loc view >= 2.30
 # Need binutils which support --generate-missing-build-notes=yes >= 2.31
 %if 0%{?fedora} >= 29 || 0%{?rhel} > 8
 BuildRequires: binutils >= 2.31
@@ -289,6 +301,14 @@ Patch26: gcc11-Wmismatched-dealloc-doc.patch
 Patch27: gcc11-s390x-regarg-1.patch
 Patch28: gcc11-s390x-regarg-2.patch
 Patch29: gcc11-s390x-regarg-3.patch
+Patch30: gcc11-testsuite-fixes.patch
+Patch32: gcc11-testsuite-fixes-2.patch
+Patch33: gcc11-testsuite-fixes-3.patch
+Patch34: gcc11-pr116034.patch
+Patch35: gcc11-testsuite-aarch64-add-fno-stack-protector.patch
+Patch36: gcc11-libgfortran-flush.patch
+Patch37: gcc11-pr113960.patch
+Patch38: gcc11-pr105157.patch
 
 Patch100: gcc11-fortran-fdec-duplicates.patch
 Patch101: gcc11-fortran-flogical-as-integer.patch
@@ -889,6 +909,14 @@ mark them as cross compiled.
 %patch27 -p1 -b .s390x-regarg-1~
 %patch28 -p1 -b .s390x-regarg-2~
 %patch29 -p1 -b .s390x-regarg-3~
+%patch30 -p1 -b .testsuite~
+%patch32 -p1 -b .testsuite2~
+%patch33 -p1 -b .testsuite3~
+%patch34 -p1 -b .pr116034~
+%patch35 -p1 -b .testsuite4~
+%patch36 -p1 -b .libgfortran-flush~
+%patch37 -p1 -b .pr113960~
+%patch38 -p1 -b .pr105157~
 
 %if 0%{?rhel} >= 9
 %patch100 -p1 -b .fortran-fdec-duplicates~
@@ -1143,9 +1171,7 @@ CONFIGURE_OPTS_NATIVE="\
 	--build=%{gcc_target_platform} --target=%{gcc_target_platform} --with-cpu=default32
 %endif
 %ifarch %{ix86} x86_64
-%if 0%{?fedora} || 0%{?rhel} > 7
 	--enable-cet \
-%endif
 	--with-tune=generic \
 %endif
 %if 0%{?rhel} >= 7
@@ -1230,9 +1256,9 @@ CC="$CC" CXX="$CXX" CFLAGS="$OPT_FLAGS" \
 	$CONFIGURE_OPTS
 
 %ifarch sparc sparcv9 sparc64
-make %{?_smp_mflags} %{?make_opts} BOOT_CFLAGS="$OPT_FLAGS" LDFLAGS_FOR_TARGET=-Wl,-z,relro,-z,now bootstrap
+make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LDFLAGS_FOR_TARGET=-Wl,-z,relro,-z,now bootstrap
 %else
-make %{?_smp_mflags} %{?make_opts} BOOT_CFLAGS="$OPT_FLAGS" LDFLAGS_FOR_TARGET=-Wl,-z,relro,-z,now profiledbootstrap
+make %{?_smp_mflags} BOOT_CFLAGS="$OPT_FLAGS" LDFLAGS_FOR_TARGET=-Wl,-z,relro,-z,now profiledbootstrap
 %endif
 
 CC="`%{gcc_target_platform}/libstdc++-v3/scripts/testsuite_flags --build-cc`"
@@ -2832,7 +2858,7 @@ end
 %{_prefix}/lib/gcc/%{gcc_target_platform}/%{gcc_major}/liblsan_preinit.o
 %endif
 %{_prefix}/libexec/getconf/default
-%doc gcc/README* rpm.doc/changelogs/gcc/ChangeLog* 
+%doc gcc/README* rpm.doc/changelogs/gcc/ChangeLog*
 %{!?_licensedir:%global license %%doc}
 %license gcc/COPYING* COPYING.RUNTIME
 
@@ -3580,10 +3606,151 @@ end
 %{_prefix}/lib/gcc/aarch64-redhat-linux/%{gcc_major}/libstdc++.so
 %{_prefix}/lib/gcc/aarch64-redhat-linux/%{gcc_major}/libstdc++.a
 %{_prefix}/lib/gcc/aarch64-redhat-linux/%{gcc_major}/libsupc++.a
-# build_cross
+%dnl build_cross
 %endif
 
 %changelog
+* Mon Jul 22 2024 Marek Polacek <polacek@redhat.com> 11.5.0-2
+- fix TARGET_CPU_DEFAULT (PR target/105157, RHEL-50037)
+- libstdc++: Workaround kernel-headers on s390x-linux (RHEL-50054)
+- fix wrong code with memcpy from _Complex (PR tree-optimization/116034)
+
+* Fri Jul 19 2024 Marek Polacek <polacek@redhat.com> 11.5.0-1
+- update from releases/gcc-11 branch (RHEL-35635)
+  - GCC 11.5 release
+  - PRs ada/113893, ada/113979, analyzer/104042, c/113262, c/114007, c/114493,
+	c++/89224, c++/92145, c++/92407, c++/97990, c++/99710, c++/100667,
+	c++/100772, c++/101765, c++/103185, c++/104051, c++/111485,
+	c++/111529, c++/113598, c++/113674, c++/114537, c++/114561,
+	c++/114562, c++/114572, c++/114634, c++/114691, d/113125, d/113758,
+	d/114171, debug/111080, debug/112718, driver/115440, fortran/50410,
+	fortran/103715, fortran/104908, fortran/107426, fortran/114474,
+	fortran/114825, gcov-profile/114115, libfortran/110651,
+	libgomp/113192, libquadmath/114533, libstdc++/104259,
+	libstdc++/104606, libstdc++/105417, libstdc++/110054,
+	libstdc++/113250, libstdc++/114147, libstdc++/114401,
+	libstdc++/114750, libstdc++/114803, libstdc++/115269,
+	libstdc++/115454, libstdc++/115575, middle-end/90348,
+	middle-end/95351, middle-end/107385, middle-end/108789,
+	middle-end/110027, middle-end/110115, middle-end/110176,
+	middle-end/111422, middle-end/111632, middle-end/112732,
+	middle-end/113907, middle-end/113921, middle-end/114599,
+	middle-end/114734, middle-end/114753, middle-end/115527,
+	middle-end/115836, objc/101666, objc/101718, preprocessor/105608,
+	rtl-optimization/100303, rtl-optimization/108086,
+	rtl-optimization/110079, rtl-optimization/114768,
+	rtl-optimization/114902, rtl-optimization/115092, sanitizer/97696,
+	sanitizer/111736, sanitizer/114956, sanitizer/115172, target/88309,
+	target/101737, target/101865, target/105522, target/108120,
+	target/108743, target/110411, target/111610, target/111677,
+	target/112397, target/113122, target/113281, target/114049,
+	target/114098, target/114130, target/114184, target/114310,
+	target/114837, target/114846, target/115253, target/115297,
+	target/115360, target/115457, target/115475, target/115611,
+	target/115691, testsuite/113175, testsuite/114034, testsuite/114036,
+	tree-optimization/110386, tree-optimization/110422,
+	tree-optimization/111039, tree-optimization/111070,
+	tree-optimization/111331, tree-optimization/111407,
+	tree-optimization/111445, tree-optimization/111736,
+	tree-optimization/112495, tree-optimization/112505,
+	tree-optimization/112793, tree-optimization/113372,
+	tree-optimization/113552, tree-optimization/113603,
+	tree-optimization/114027, tree-optimization/114115,
+	tree-optimization/114566, tree-optimization/114876,
+	tree-optimization/115192, tree-optimization/115337,
+	tree-optimization/115843
+- fix FLUSH IOSTAT value (PR libfortran/101255, RHEL-32536)
+- fix conditions for using memcmp in
+  std::lexicographical_compare_three_way (PR libstdc++/113960)
+
+* Mon Dec 18 2023 Marek Polacek <polacek@redhat.com> 11.4.1-3
+- update from releases/gcc-11-branch (RHEL-17638)
+  - PRs c++/106310, c++/106890, c++/109666, c++/109761, c++/111357,
+	c++/111512, c++/112795, d/108842, d/110359, d/110511, d/110516,
+	debug/110295, fortran/95947, fortran/103506, fortran/107397,
+	fortran/110288, fortran/110585, fortran/110658, fortran/111837,
+	fortran/111880, libstdc++/95048, libstdc++/99327, libstdc++/104161,
+	libstdc++/104242, libstdc++/108178, libstdc++/111050,
+	libstdc++/111511, libstdc++/112314, libstdc++/112491,
+	middle-end/110200, middle-end/111699, middle-end/111818,
+	middle-end/112733, rtl-optimization/110237, sanitizer/112727,
+	target/96762, target/101177, target/101469, target/105325,
+	target/109800, target/109932, target/110011, target/110044,
+	target/110170, target/110309, target/110741, target/111001,
+	target/111340, target/111367, target/111408, target/111815,
+	target/112672, target/112816, target/112837, target/112845,
+	target/112891, testsuite/66005, tree-optimization/110298,
+	tree-optimization/110731, tree-optimization/110914,
+	tree-optimization/111015, tree-optimization/111614,
+	tree-optimization/111764, tree-optimization/111917
+- use -fno-stack-protector in some aarch64 tests
+
+* Tue Oct  3 2023 Marek Polacek <polacek@redhat.com> 11.4.1-2.3
+- fix member vs global template (RHEL-2607)
+
+* Mon Oct  2 2023 Marek Polacek <polacek@redhat.com> 11.4.1-2.2
+- guard the bit test merging code in if-combine (RHEL-6068)
+
+* Fri Jun  9 2023 Marek Polacek <polacek@redhat.com> 11.4.1-2.1
+- fix ICE on pr96024.f90 on big-endian hosts (PR fortran/96024, #2213211)
+- use -fno-stack-protector to fix bit-field aarch64 tests (#2213221)
+
+* Mon Jun  5 2023 Marek Polacek <polacek@redhat.com> 11.4.1-2
+- update from releases/gcc-11-branch (#2193180)
+  - GCC 11.4 release
+  - PRs bootstrap/90543, c++/53932, c++/69410, c++/92752, c++/98056,
+	c++/98821, c++/100295, c++/100474, c++/101118, c++/101869,
+	c++/102780, c++/103871, c++/104527, c++/105406, c++/105996,
+	c++/106188, c++/106675, c++/106713, c++/106740, c++/107065,
+	c++/107163, c++/107179, c++/107558, c++/107579, c++/107864,
+	c++/108138, c++/108180, c++/108365, c++/108468, c++/108474,
+	c++/108607, c++/108975, c++/108998, c++/109096, c++/109164, c/107127,
+	c/107465, c/109151, d/107592, d/108050, d/108877, d/109108,
+	debug/106719, debug/108573, debug/108716, debug/108967, driver/106624,
+	fortran/85877, fortran/95107, fortran/96024, fortran/96025,
+	fortran/99036, fortran/103259, fortran/104332, fortran/106209,
+	fortran/106945, fortran/107576, fortran/107872, fortran/108131,
+	fortran/108349, fortran/108420, fortran/108421, fortran/108451,
+	fortran/108453, fortran/108501, fortran/108502, fortran/108527,
+	fortran/108529, fortran/108609, fortran/108937, fortran/109186,
+	fortran/109511, fortran/109846, ipa/105685, ipa/106124, ipa/107944,
+	libquadmath/87204, libquadmath/94756, libstdc++/91456,
+	libstdc++/103934, libstdc++/104866, libstdc++/104875,
+	libstdc++/105844, libstdc++/106183, libstdc++/107801,
+	libstdc++/107814, libstdc++/108030, libstdc++/108118,
+	libstdc++/108265, libstdc++/108636, libstdc++/108856,
+	libstdc++/108952, libstdc++/109064, libstdc++/109261,
+	libstdc++/109949, lto/109263, middle-end/104450, middle-end/104464,
+	middle-end/106190, middle-end/107317, middle-end/108237,
+	middle-end/108264, middle-end/108435, middle-end/108459,
+	middle-end/108546, middle-end/108625, middle-end/108685,
+	middle-end/108854, other/108560, other/109306,
+	rtl-optimization/106751, rtl-optimization/107482,
+	rtl-optimization/108193, rtl-optimization/108596,
+	rtl-optimization/109585, target/70243, target/90458, target/96373,
+	target/98776, target/100758, target/104871, target/104921,
+	target/105554, target/105599, target/106736, target/106875,
+	target/107568, target/107714, target/107863, target/108272,
+	target/108348, target/108589, target/108699, target/108807,
+	target/108812, target/108881, target/109067, target/109140,
+	target/109276, testsuite/47334, testsuite/103823, testsuite/108151,
+	testsuite/108973, testsuite/108985, tree-optimization/105484,
+	tree-optimization/106809, tree-optimization/107107,
+	tree-optimization/107212, tree-optimization/107254,
+	tree-optimization/107323, tree-optimization/107451,
+	tree-optimization/107554, tree-optimization/107898,
+	tree-optimization/107997, tree-optimization/108068,
+	tree-optimization/108076, tree-optimization/108095,
+	tree-optimization/108199, tree-optimization/108498,
+	tree-optimization/108688, tree-optimization/108692,
+	tree-optimization/108821, tree-optimization/108950,
+	tree-optimization/109176, tree-optimization/109410,
+	tree-optimization/109473, tree-optimization/109491,
+	tree-optimization/109502, tree-optimization/109573,
+	tree-optimization/109724, tree-optimization/109778
+  - PRs fortran/100607, libstdc++/109822, target/109954,
+	tree-optimization/109505
+
 * Wed Mar 29 2023 Marek Polacek <polacek@redhat.com> 11.3.1-4.4
 - s390x: add support for register arguments preserving (#2168204)
 

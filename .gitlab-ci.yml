@@ -7,20 +7,12 @@ stages:
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-  OS7: 7.9.2009
-  OS7TAG: 7.9.2009
-  RL8: 8.8.20230518
-  RL8TAG: 8.8.20230518
+  RL8: 8.10.20240528
+  RL8TAG: 8.10.20240528
+  RL9: 9.4.20240523
+  RL9TAG: 9.4.20240523
   CI_COMMIT_SHORT_SHA_RL8: ${CI_COMMIT_SHORT_SHA}-rocky-8
   YUM0: rpmb.jfrog.io/artifactory/custom
-
-centos7base:
-  stage: base
-  variables:
-    BASE: centos7base
-  script:
-    - docker volume create $CI_COMMIT_SHORT_SHA
-    - docker-compose -f docker-compose.base.yml build --no-cache --pull --build-arg repopath=$YUM0 $BASE
 
 rocky8base:
   stage: base
@@ -30,15 +22,6 @@ rocky8base:
     - docker volume create $CI_COMMIT_SHORT_SHA_RL8
     - docker-compose -f docker-compose.base.yml build --no-cache --pull --build-arg repopath=$YUM0 $BASE
 
-centos7build:
-  stage: build
-  timeout: 12h
-  variables:
-    BUILD: centos7build
-  script:
-    - docker-compose build --no-cache $BUILD
-    - docker-compose run -v $CI_COMMIT_SHORT_SHA:/home/centos/rpmbuild/RPMS $BUILD
-
 rocky8build:
   stage: build
   timeout: 12h
@@ -47,14 +30,6 @@ rocky8build:
   script:
     - docker-compose build --no-cache $BUILD
     - docker-compose run -v $CI_COMMIT_SHORT_SHA_RL8:/home/centos/rpmbuild/RPMS $BUILD
-
-centos7deploy:
-  stage: deploy
-  variables:
-    FTPTRAY_USER: centos-7
-    FTPTRAY_REPO: gcc11custom
-  script:
-    - docker run --rm -v $CI_COMMIT_SHORT_SHA:/home/centos/rpmbuild/RPMS -e FTPTRAY_USER=$FTPTRAY_USER -e FTPTRAY_PASSWORD=$FTPTRAY_PASSWORD -e FTPTRAY_REPO=$FTPTRAY_REPO -e FTPTRAY_HOST=$FTPTRAY_HOST aursu/rpmbuild:ftptray /usr/local/bin/ftptray.py /home/centos/rpmbuild/RPMS
 
 rocky8deploy:
   stage: deploy

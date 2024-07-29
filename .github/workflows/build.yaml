@@ -6,8 +6,9 @@ env:
   BINTRAY_API_KEY: ${{ secrets.BINTRAY_API_KEY }}
   DOCKER_USER: ${{ secrets.DOCKER_USER }}
   DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
-  OS7: 7.9.2009
-  OS7TAG: 7.9.2009
+  BINTRAY_REPO: gcc11custom
+  RL8: 8.10.20240528
+  RL8TAG: 8.10.20240528
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,19 +16,23 @@ jobs:
       matrix:
         include:
           - compose-file: docker-compose.yml
-            repo: custom
-            build: centos7build
-            uploader: centos7bintray
+            base: rocky8base
+            build: rocky8build
+            uploader: rocky8bintray
+            repo: gcc11custom
+            repo_path: rocky/8
     env:
       BUILD_COMPOSE_FILE: ${{ matrix.compose-file }}
       BINTRAY_REPO: ${{ matrix.repo }}
       BUILD: ${{ matrix.build }}
       UPLOADER: ${{ matrix.uploader }}
+      REPO_PATH: ${{ matrix.repo_path }}
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
+      - run: docker-compose -f docker-compose.base.yml build --no-cache --pull $BASE
       - run: docker-compose -f $BUILD_COMPOSE_FILE build --no-cache $BUILD
       - run: docker-compose -f $BUILD_COMPOSE_FILE up --exit-code-from $BUILD $BUILD
       - run: docker-compose -f rpmbuild/docker-compose.bintray.yml pull $UPLOADER
-      - run: docker-compose -f rpmbuild/docker-compose.bintray.yml run --rm -e BINTRAY_USER=$BINTRAY_USER -e BINTRAY_API_KEY=$BINTRAY_API_KEY -e BINTRAY_REPO=$BINTRAY_REPO -e ARTIFACTORY_URL=$ARTIFACTORY_URL $UPLOADER
+      - run: docker-compose -f rpmbuild/docker-compose.bintray.yml run --rm -e BINTRAY_USER=$BINTRAY_USER -e BINTRAY_API_KEY=$BINTRAY_API_KEY -e BINTRAY_REPO=$BINTRAY_REPO -e ARTIFACTORY_URL=$ARTIFACTORY_URL -e REPO_PATH=$REPO_PATH $UPLOADER
