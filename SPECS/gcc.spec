@@ -88,7 +88,7 @@
 %else
 %global build_isl 1
 %endif
-%global build_libstdcxx_docs 1
+%global build_libstdcxx_docs 0
 %ifarch %{ix86} x86_64 ppc ppc64 ppc64le ppc64p7 s390 s390x %{arm} aarch64 %{mips}
 %global attr_ifunc 1
 %else
@@ -160,24 +160,6 @@ Source2: newlib-cygwin-%{newlib_cygwin_gitrev}.tar.xz
 %global isl_version 0.18
 Source3: https://gcc.gnu.org/pub/gcc/infrastructure/isl-%{isl_version}.tar.bz2
 URL: http://gcc.gnu.org
-# Need binutils with -pie support >= 2.14.90.0.4-4
-# Need binutils which can omit dot symbols and overlap .opd on ppc64 >= 2.15.91.0.2-4
-# Need binutils which handle -msecure-plt on ppc >= 2.16.91.0.2-2
-# Need binutils which support .weakref >= 2.16.91.0.3-1
-# Need binutils which support --hash-style=gnu >= 2.17.50.0.2-7
-# Need binutils which support mffgpr and mftgpr >= 2.17.50.0.2-8
-# Need binutils which support --build-id >= 2.17.50.0.17-3
-# Need binutils which support %%gnu_unique_object >= 2.19.51.0.14
-# Need binutils which support .cfi_sections >= 2.19.51.0.14-33
-# Need binutils which support --no-add-needed >= 2.20.51.0.2-12
-# Need binutils which support -plugin
-# Need binutils which support .loc view >= 2.30
-# Need binutils which support --generate-missing-build-notes=yes >= 2.31
-%if 0%{?fedora} >= 29 || 0%{?rhel} > 7
-BuildRequires: binutils >= 2.31
-%else
-BuildRequires: binutils >= 2.24
-%endif
 # While gcc doesn't include statically linked binaries, during testing
 # -static is used several times.
 BuildRequires: glibc-static
